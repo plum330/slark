@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"errors"
+	"github.com/gin-gonic/gin"
 	"net"
 	"net/http"
 )
@@ -39,7 +40,9 @@ func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		network: "tcp",
 		address: "0.0.0.0:0",
-		Server:  &http.Server{},
+		Server: &http.Server{
+			Handler: gin.New(),
+		},
 	}
 	for _, o := range opts {
 		o(srv)
