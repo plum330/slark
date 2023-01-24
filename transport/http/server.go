@@ -14,6 +14,7 @@ type Server struct {
 	err      error
 	network  string
 	address  string
+	Engine   *gin.Engine
 }
 
 type ServerOption func(server *Server)
@@ -37,13 +38,14 @@ func Handler(handler http.Handler) ServerOption {
 }
 
 func NewServer(opts ...ServerOption) *Server {
+	engine := gin.New()
 	srv := &Server{
 		network: "tcp",
 		address: "0.0.0.0:0",
-		Server: &http.Server{
-			Handler: gin.New(),
-		},
+		Server:  &http.Server{},
+		Engine:  engine,
 	}
+	srv.Handler = srv.Engine
 	for _, o := range opts {
 		o(srv)
 	}

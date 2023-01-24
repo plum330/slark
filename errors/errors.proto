@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package errors;
+
+option go_package = "github.com/go-slark/slark/errors;errors";
+
+message Status {
+  int32 code = 1;
+  string reason = 2;
+  string message = 3;
+  map<string, string> metadata = 4;
+}
+
+// cmd : protoc --go_out . --go_opt=paths=source_relative --go-grpc_out . --go-grpc_opt=paths=source_relative errors.proto
