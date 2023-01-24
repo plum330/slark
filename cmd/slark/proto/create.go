@@ -30,7 +30,7 @@ var CreateCmd = &cobra.Command{
 		}
 		err := find(plugins...)
 		if err != nil {
-			cmd := exec.Command("hack", "install")
+			cmd := exec.Command("slark", "install")
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 			if err = cmd.Run(); err != nil {

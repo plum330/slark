@@ -16,7 +16,7 @@ const (
 	ctxPackage  = protogen.GoImportPath("context")
 	ginPackage  = protogen.GoImportPath("github.com/gin-gonic/gin")
 	errPackage  = protogen.GoImportPath("github.com/go-slark/slark/errors")
-	httpPackage = protogen.GoImportPath("github.com/go-slark/slark/http")
+	httpPackage = protogen.GoImportPath("github.com/go-slark/slark/transport/http")
 )
 
 var methodSets = make(map[string]int)
