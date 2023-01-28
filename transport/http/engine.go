@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/render"
@@ -15,19 +16,20 @@ import (
 )
 
 type EngineParam struct {
-	Env          string
+	Mode         string
 	BaseUrl      string
 	AccessLog    bool
 	Pprof        bool
 	ExcludePaths []string
 	Routers      []func(r gin.IRouter)
 	HandlerFunc  []gin.HandlerFunc
+	http.FileSystem
 	logger.Logger
 }
 
 func Engine(param *EngineParam) ServerOption {
 	return func(server *Server) {
-		gin.SetMode(param.Env)
+		gin.SetMode(param.Mode)
 		engine := server.Engine
 		engine.Use(gin.CustomRecovery(func(ctx *gin.Context, err interface{}) {
 			ctx.Render(http.StatusOK, render.JSON{
@@ -42,6 +44,9 @@ func Engine(param *EngineParam) ServerOption {
 		}
 		if param.Pprof {
 			pprof.Register(engine)
+		}
+		if param.FileSystem != nil {
+			engine.StaticFS(fmt.Sprintf("%s/doc", param.BaseUrl), param.FileSystem)
 		}
 		engine.Use(param.HandlerFunc...)
 		g := engine.Group(param.BaseUrl)
