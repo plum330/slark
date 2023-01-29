@@ -1,0 +1,10 @@
+securityDefinitions:
+  key:
+    type: apiKey
+    name: Authorization
+    in: header
+
+security:
+  - key: []
+
+basePath: /api/v1

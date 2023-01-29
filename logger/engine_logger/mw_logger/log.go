@@ -12,7 +12,7 @@ func ErrLogger(l logger.Logger) gin.HandlerFunc {
 		ctx.Next()
 		context := ctx.Request.Context()
 		for _, err := range ctx.Errors {
-			ce, ok := err.Err.(*errors.CustomError)
+			ce, ok := err.Err.(*errors.Error)
 			if !ok {
 				l.Log(context, logger.ErrorLevel, map[string]interface{}{"meta": err.Meta, "error": err.Err}, "系统异常")
 			} else {
@@ -20,7 +20,7 @@ func ErrLogger(l logger.Logger) gin.HandlerFunc {
 					"surplus": ce.Surplus,
 					"meta":    ce.Metadata,
 					"code":    ce.Code,
-					"error":   ce.GetError(),
+					"error":   ce.Unwrap(),
 				}
 				l.Log(context, logger.ErrorLevel, fields, ce.Message)
 			}
