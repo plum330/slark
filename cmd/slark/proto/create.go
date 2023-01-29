@@ -26,7 +26,7 @@ var CreateCmd = &cobra.Command{
 			"protoc-gen-go", "protoc-gen-go-grpc",
 			"protoc-gen-gin", "protoc-gen-openapiv2",
 			"protoc-gen-validate", "protoc-go-inject-tag",
-			"wire", "statik",
+			"protoc-gen-errors", "wire", "statik",
 		}
 		err := find(plugins...)
 		if err != nil {
@@ -88,6 +88,8 @@ func create(path, dir string) error {
 		"--go-grpc_opt=paths=source_relative",
 		"--gin_out=" + dir,
 		"--gin_opt=paths=source_relative",
+		"--errors_out=" + dir,
+		"--errors_opt=paths=source_relative",
 		"--openapiv2_out=" + dir,
 		"--openapiv2_opt=logtostderr=true",
 		"--openapiv2_opt=json_names_for_fields=false",
