@@ -25,7 +25,7 @@ const (
 	errStack = "err_stack"
 )
 
-type CustomError struct {
+type Error struct {
 	Status
 	Surplus interface{} `json:"surplus,omitempty"`
 	Err     string      `json:"error,omitempty"`
@@ -33,7 +33,7 @@ type CustomError struct {
 	error
 }
 
-func (e *CustomError) Error() string {
+func (e *Error) Error() string {
 	if e.error != nil {
 		e.Err = e.error.Error()
 	}
@@ -42,12 +42,12 @@ func (e *CustomError) Error() string {
 	//return fmt.Sprintf("code:%d, reason:%s, msg:%v, metadata:%v, surplus:%v, err:%v", e.Code, e.Reason, e.Message, e.Metadata, e.Surplus, e.error)
 }
 
-func (e *CustomError) GetError() error {
+func (e *Error) GetError() error {
 	return e.error
 }
 
-func NewError(code int, reason, msg string) *CustomError {
-	return &CustomError{
+func NewError(code int, reason, msg string) *Error {
+	return &Error{
 		Status: Status{
 			Code:    int32(code),
 			Reason:  reason,
@@ -56,8 +56,8 @@ func NewError(code int, reason, msg string) *CustomError {
 	}
 }
 
-func GetErr(err error) *CustomError {
-	e := &CustomError{
+func GetErr(err error) *Error {
+	e := &Error{
 		Status: Status{
 			Code:    UnknownCode,
 			Reason:  UnknownReason,
@@ -71,42 +71,42 @@ func GetErr(err error) *CustomError {
 
 // grpc error
 
-func (e *CustomError) Unwrap() error {
+func (e *Error) Unwrap() error {
 	return e.error
 }
 
-func (e *CustomError) Is(err error) bool {
-	if se := new(CustomError); errors.As(err, &se) {
+func (e *Error) Is(err error) bool {
+	if se := new(Error); errors.As(err, &se) {
 		return se.Code == e.Code && se.Reason == e.Reason
 	}
 	return false
 }
 
-func (e *CustomError) WithError(cause error) *CustomError {
+func (e *Error) WithError(cause error) *Error {
 	err := clone(e)
 	err.error = fmt.Errorf("%+v", cause)
 	return err
 }
 
-func (e *CustomError) WithMetadata(md map[string]string) *CustomError {
+func (e *Error) WithMetadata(md map[string]string) *Error {
 	err := clone(e)
 	err.Metadata = md
 	return err
 }
 
-func (e *CustomError) WithSurplus(surplus interface{}) *CustomError {
+func (e *Error) WithSurplus(surplus interface{}) *Error {
 	err := clone(e)
 	err.Surplus = surplus
 	return err
 }
 
-func (e *CustomError) WithMessage(msg string) *CustomError {
+func (e *Error) WithMessage(msg string) *Error {
 	err := clone(e)
 	err.Message = msg
 	return err
 }
 
-func (e *CustomError) GRPCStatus() *status.Status {
+func (e *Error) GRPCStatus() *status.Status {
 	eInfo := &errdetails.ErrorInfo{
 		Reason: e.Reason,
 		//Reason:   fmt.Sprintf("%+v", e.error),
@@ -136,7 +136,7 @@ func Reason(err error) string {
 	return FromError(err).Reason
 }
 
-func clone(err *CustomError) *CustomError {
+func clone(err *Error) *Error {
 	if err.clone {
 		return err
 	}
@@ -145,7 +145,7 @@ func clone(err *CustomError) *CustomError {
 	for k, v := range err.Metadata {
 		metadata[k] = v
 	}
-	return &CustomError{
+	return &Error{
 		error: err.error,
 		Status: Status{
 			Code:     err.Code,
@@ -157,11 +157,11 @@ func clone(err *CustomError) *CustomError {
 	}
 }
 
-func FromError(err error) *CustomError {
+func FromError(err error) *Error {
 	if err == nil {
 		return nil
 	}
-	if se := new(CustomError); errors.As(err, &se) {
+	if se := new(Error); errors.As(err, &se) {
 		return se
 	}
 	gs, ok := status.FromError(err)
