@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/go-slark/slark/pkg"
 	"github.com/gorilla/websocket"
+	"net"
 	"net/http"
 	"strconv"
 	"sync"
@@ -14,118 +15,47 @@ import (
 
 type Server struct {
 	*http.Server
-	*websocket.Upgrader
+	*ConnOption
+
+	ug       *websocket.Upgrader
+	listener net.Listener
+	handler  func(w http.ResponseWriter, r *http.Request)
+
+	timeout time.Duration
 	network string
 	address string
 	path    string
+	err     error
+
+	// session mng
 }
 
-type ConnOption struct {
-	id         string
-	context    interface{}
-	wsConn     *websocket.Conn
-	in         chan *Msg
-	out        chan *Msg
-	closing    chan struct{}
-	isClosed   bool
-	rBuffer    int
-	wBuffer    int
-	hbInterval time.Duration
-	hbTime     int64
-	wTime      time.Duration
-	hsTime     time.Duration
-	rLimit     int64
-	sync.Mutex // avoid close chan duplicated
-}
-
-func NewWSConn(opts ...Option) *ConnOption {
-	c := &ConnOption{
-		in:         make(chan *Msg, 1000),
-		out:        make(chan *Msg, 1000),
-		closing:    make(chan struct{}, 1),
-		rBuffer:    1024,
-		wBuffer:    1024,
-		hbInterval: 15 * time.Second,
-		hbTime:     time.Now().Unix(),
-		wTime:      10 * time.Second,
-		hsTime:     3 * time.Second,
+func NewServer(opts ...ServerOption) *Server {
+	srv := &Server{
+		Server: &http.Server{},
+		ConnOption: &ConnOption{
+			in:         1000,
+			out:        1000,
+			rBuffer:    1024,
+			wBuffer:    1024,
+			hbInterval: 15 * time.Second,
+			hbTime:     time.Now().Unix(),
+			wTime:      10 * time.Second,
+			hsTime:     3 * time.Second,
+		},
+		network: "tcp",
+		address: "0.0.0.0:0",
+		timeout: 3 * time.Second,
 	}
+
 	for _, opt := range opts {
-		opt(c)
+		opt(srv)
 	}
-	return c
-}
 
-type Option func(opt *ConnOption)
-
-func WithIn(in int) Option {
-	return func(opt *ConnOption) {
-		opt.in = make(chan *Msg, in)
-	}
-}
-
-func WithOut(out int) Option {
-	return func(opt *ConnOption) {
-		opt.out = make(chan *Msg, out)
-	}
-}
-
-func WithHBInterval(hbInterval time.Duration) Option {
-	return func(opt *ConnOption) {
-		opt.hbInterval = hbInterval
-	}
-}
-
-func WithReadBuffer(rb int) Option {
-	return func(opt *ConnOption) {
-		opt.rBuffer = rb
-	}
-}
-
-func WithWriteBuffer(wb int) Option {
-	return func(opt *ConnOption) {
-		opt.wBuffer = wb
-	}
-}
-
-func WithWriteTime(wt time.Duration) Option {
-	return func(opt *ConnOption) {
-		opt.wTime = wt
-	}
-}
-
-func WithHandShakeTime(hst time.Duration) Option {
-	return func(opt *ConnOption) {
-		opt.hsTime = hst
-	}
-}
-
-func WithReadLimit(rLimit int64) Option {
-	return func(opt *ConnOption) {
-		opt.rLimit = rLimit
-	}
-}
-
-type Msg struct {
-	Type    int
-	Payload []byte
-	ctx     context.Context
-}
-
-type WSConn interface {
-	ID() string
-	Context() interface{}
-	SetContext(ctx interface{})
-	Close()
-	Receive() (*Msg, error)
-	Send(m *Msg) error
-}
-
-func (c *ConnOption) Init(w http.ResponseWriter, r *http.Request) error {
-	ws, err := (&websocket.Upgrader{
-		HandshakeTimeout: c.hsTime,
-		ReadBufferSize:   c.rBuffer,
-		WriteBufferSize:  c.wBuffer,
+	srv.ug = &websocket.Upgrader{
+		HandshakeTimeout: srv.hsTime,
+		ReadBufferSize:   srv.rBuffer,
+		WriteBufferSize:  srv.wBuffer,
 		CheckOrigin: func(r *http.Request) bool {
 			// 校验规则
 			if r.Method != http.MethodGet {
@@ -135,27 +65,104 @@ func (c *ConnOption) Init(w http.ResponseWriter, r *http.Request) error {
 			return true
 		},
 		EnableCompression: false,
-	}).Upgrade(w, r, nil)
-	if err != nil {
+	}
+
+	http.Handle(srv.path, http.TimeoutHandler(http.HandlerFunc(srv.handler), srv.timeout, "time exceed"))
+	srv.err = srv.listen()
+	return srv
+}
+
+func (s *Server) Start() error {
+	if s.err != nil {
+		return s.err
+	}
+	err := s.Serve(s.listener)
+	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
-	c.wsConn = ws
-	c.id = newID()
-	go c.read()
-	go c.write()
-	go c.handleHB()
 	return nil
 }
 
-func (c *ConnOption) read() {
-	if c.rLimit > 0 {
-		c.wsConn.SetReadLimit(c.rLimit)
+func (s *Server) Stop(ctx context.Context) error {
+	return s.Shutdown(ctx)
+}
+
+func (s *Server) listen() error {
+	l, err := net.Listen(s.network, s.address)
+	if err != nil {
+		return err
 	}
-	_ = c.wsConn.SetReadDeadline(time.Now().Add(c.hbInterval))
+	s.listener = l
+	return nil
+}
+
+type ConnOption struct {
+	in         int
+	out        int
+	rBuffer    int
+	wBuffer    int
+	hbInterval time.Duration
+	hbTime     int64
+	wTime      time.Duration
+	hsTime     time.Duration
+	rLimit     int64
+}
+
+type Msg struct {
+	Type    int
+	Payload []byte
+	ctx     context.Context
+}
+
+type Conn interface {
+	ID() string
+	Context() interface{}
+	SetContext(ctx interface{})
+	Close()
+	Receive() (*Msg, error)
+	Send(m *Msg) error
+}
+
+type Session struct {
+	id         string
+	context    interface{}
+	wsConn     *websocket.Conn
+	in         chan *Msg
+	out        chan *Msg
+	closing    chan struct{}
+	isClosed   bool
+	sync.Mutex // avoid close chan duplicated
+	*ConnOption
+}
+
+func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, error) {
+	ws, err := s.ug.Upgrade(w, r, nil)
+	if err != nil {
+		return nil, err
+	}
+	sess := &Session{
+		id:         newID(),
+		wsConn:     ws,
+		in:         make(chan *Msg, s.in),
+		out:        make(chan *Msg, s.out),
+		closing:    make(chan struct{}, 1),
+		ConnOption: s.ConnOption,
+	}
+	go sess.read()
+	go sess.write()
+	go sess.handleHB()
+	return sess, nil
+}
+
+func (s *Session) read() {
+	if s.rLimit > 0 {
+		s.wsConn.SetReadLimit(s.rLimit)
+	}
+	_ = s.wsConn.SetReadDeadline(time.Now().Add(s.hbInterval))
 	for {
-		msgType, payload, err := c.wsConn.ReadMessage()
+		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
-			c.Close()
+			s.Close()
 			break
 		}
 		m := &Msg{
@@ -164,35 +171,35 @@ func (c *ConnOption) read() {
 			ctx:     context.WithValue(context.Background(), pkg.TraceID, pkg.BuildRequestID()),
 		}
 		select {
-		case c.in <- m:
-			atomic.StoreInt64(&c.hbTime, time.Now().Unix())
-		case <-c.closing:
+		case s.in <- m:
+			atomic.StoreInt64(&s.hbTime, time.Now().Unix())
+		case <-s.closing:
 			return
 		}
 	}
 }
 
-func (c *ConnOption) write() {
-	tk := time.NewTicker(c.hbInterval * 4 / 5)
+func (s *Session) write() {
+	tk := time.NewTicker(s.hbInterval * 4 / 5)
 	defer func() {
 		tk.Stop()
-		c.Close()
+		s.Close()
 	}()
 
 	for {
 		select {
-		case m := <-c.out:
-			_ = c.wsConn.SetWriteDeadline(time.Now().Add(c.wTime))
-			err := c.wsConn.WriteMessage(m.Type, m.Payload)
+		case m := <-s.out:
+			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
+			err := s.wsConn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
 				// TODO
 				//return
 			}
-		case <-c.closing:
+		case <-s.closing:
 			return
 		case <-tk.C:
-			_ = c.wsConn.SetWriteDeadline(time.Now().Add(c.wTime))
-			err := c.wsConn.WriteMessage(websocket.PingMessage, nil)
+			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
+			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
 				// TODO
 				//return
@@ -201,63 +208,63 @@ func (c *ConnOption) write() {
 	}
 }
 
-func (c *ConnOption) handleHB() {
-	c.wsConn.SetPongHandler(func(appData string) error {
-		_ = c.wsConn.SetReadDeadline(time.Now().Add(c.hbInterval))
-		atomic.StoreInt64(&c.hbTime, time.Now().Unix())
+func (s *Session) handleHB() {
+	s.wsConn.SetPongHandler(func(appData string) error {
+		_ = s.wsConn.SetReadDeadline(time.Now().Add(s.hbInterval))
+		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 		return nil
 	})
 
 	for {
-		ts := atomic.LoadInt64(&c.hbTime)
-		if time.Now().Unix()-ts > int64(c.hbInterval) {
-			c.Close()
+		ts := atomic.LoadInt64(&s.hbTime)
+		if time.Now().Unix()-ts > int64(s.hbInterval) {
+			s.Close()
 			break
 		}
 		time.Sleep(2 * time.Second)
 	}
 }
 
-func (c *ConnOption) Receive() (*Msg, error) {
+func (s *Session) Receive() (*Msg, error) {
 	select {
-	case m := <-c.in:
+	case m := <-s.in:
 		return m, nil
-	case <-c.closing:
+	case <-s.closing:
 		return nil, errors.New("conn is closing")
 	}
 }
 
-func (c *ConnOption) Send(m *Msg) error {
+func (s *Session) Send(m *Msg) error {
 	var err error
 	select {
-	case c.out <- m:
-	case <-c.closing:
+	case s.out <- m:
+	case <-s.closing:
 		err = errors.New("conn is closing")
 	}
 	return err
 }
 
-func (c *ConnOption) Close() {
-	_ = c.wsConn.Close()
-	c.Lock()
-	defer c.Unlock()
-	if c.isClosed {
+func (s *Session) Close() {
+	_ = s.wsConn.Close()
+	s.Lock()
+	defer s.Unlock()
+	if s.isClosed {
 		return
 	}
-	close(c.closing)
-	c.isClosed = true
+	close(s.closing)
+	s.isClosed = true
 }
 
-func (c *ConnOption) SetContext(ctx interface{}) {
-	c.context = ctx
+func (s *Session) SetContext(ctx interface{}) {
+	s.context = ctx
 }
 
-func (c *ConnOption) Context() interface{} {
-	return c.context
+func (s *Session) Context() interface{} {
+	return s.context
 }
 
-func (c *ConnOption) ID() string {
-	return c.id
+func (s *Session) ID() string {
+	return s.id
 }
 
 var connID uint64
