@@ -21,7 +21,6 @@ type Server struct {
 	listener net.Listener
 	handler  func(w http.ResponseWriter, r *http.Request)
 
-	timeout time.Duration
 	network string
 	address string
 	path    string
@@ -45,7 +44,6 @@ func NewServer(opts ...ServerOption) *Server {
 		},
 		network: "tcp",
 		address: "0.0.0.0:0",
-		timeout: 3 * time.Second,
 	}
 
 	for _, opt := range opts {
@@ -79,7 +77,7 @@ func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
-	//http.Handle(s.path, http.TimeoutHandler(http.HandlerFunc(s.handler), s.timeout, "time exceed"))
+
 	http.HandleFunc(s.path, s.handler)
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {

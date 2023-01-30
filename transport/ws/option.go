@@ -18,9 +18,10 @@ func WithAddress(addr string) ServerOption {
 	}
 }
 
-func WithTimeout(timeout time.Duration) ServerOption {
+func WithTimeout(rTimeout, wTimeout time.Duration) ServerOption {
 	return func(s *Server) {
-		s.timeout = timeout
+		s.Server.ReadTimeout = rTimeout
+		s.Server.WriteTimeout = wTimeout
 	}
 }
 
