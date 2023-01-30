@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"net/http"
 	"time"
 )
 
@@ -28,12 +27,6 @@ func WithTimeout(timeout time.Duration) ServerOption {
 func WithPath(path string) ServerOption {
 	return func(s *Server) {
 		s.path = path
-	}
-}
-
-func WithHandler(h func(w http.ResponseWriter, r *http.Request)) ServerOption {
-	return func(server *Server) {
-		server.handler = h
 	}
 }
 

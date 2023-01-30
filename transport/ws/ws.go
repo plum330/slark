@@ -67,15 +67,20 @@ func NewServer(opts ...ServerOption) *Server {
 		EnableCompression: false,
 	}
 
-	http.Handle(srv.path, http.TimeoutHandler(http.HandlerFunc(srv.handler), srv.timeout, "time exceed"))
 	srv.err = srv.listen()
 	return srv
+}
+
+func (s *Server) Handler(handler func(w http.ResponseWriter, r *http.Request)) {
+	s.handler = handler
 }
 
 func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
+	//http.Handle(s.path, http.TimeoutHandler(http.HandlerFunc(s.handler), s.timeout, "time exceed"))
+	http.HandleFunc(s.path, s.handler)
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
