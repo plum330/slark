@@ -2,6 +2,8 @@ package grpc
 
 import (
 	"context"
+	"github.com/go-slark/slark/logger"
+	"github.com/go-slark/slark/middleware"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -14,8 +16,10 @@ type Server struct {
 	health   *health.Server
 	listener net.Listener
 	err      error
+	logger   logger.Logger
 	network  string
 	address  string
+	mw       []middleware.Middleware
 	opts     []grpc.ServerOption
 	unary    []grpc.UnaryServerInterceptor
 	stream   []grpc.StreamServerInterceptor
@@ -31,7 +35,13 @@ func NewServer(opts ...ServerOption) *Server {
 		o(srv)
 	}
 
+	if len(srv.mw) == 0 {
+		srv.mw = make([]middleware.Middleware, 0)
+	}
+	srv.mw = append(srv.mw, middleware.Validate(), middleware.Recovery(srv.logger))
+
 	var grpcOpts []grpc.ServerOption
+	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
 	if len(srv.unary) > 0 {
 		grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(srv.unary...))
 	}
@@ -89,6 +99,12 @@ func Address(addr string) ServerOption {
 func Listener(l net.Listener) ServerOption {
 	return func(s *Server) {
 		s.listener = l
+	}
+}
+
+func Logger(logger logger.Logger) ServerOption {
+	return func(server *Server) {
+		server.logger = logger
 	}
 }
 

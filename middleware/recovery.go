@@ -14,7 +14,7 @@ func Recovery(l logger.Logger) Middleware {
 			var err error
 			defer func() {
 				if e := recover(); e != nil {
-					buf := make([]byte, 64<<10) // buf:64k
+					buf := make([]byte, 64<<10) // buf size : 64k
 					n := runtime.Stack(buf, false)
 					buf = buf[:n]
 					fields := map[string]interface{}{

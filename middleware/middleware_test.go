@@ -13,7 +13,7 @@ func TestMiddleware(t *testing.T) {
 // handler program
 func hello() Handler {
 	return func(ctx context.Context, req interface{}) (interface{}, error) {
-		fmt.Println("hello world")
+		fmt.Println("hello world : ", req)
 		return nil, nil
 	}
 }
