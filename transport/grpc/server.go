@@ -125,3 +125,9 @@ func ServerOptions(opts []grpc.ServerOption) ServerOption {
 		s.opts = opts
 	}
 }
+
+func Middleware(mw []middleware.Middleware) ServerOption {
+	return func(server *Server) {
+		server.mw = mw
+	}
+}
