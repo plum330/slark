@@ -1,23 +1,28 @@
 package middleware
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/errors"
+	"github.com/go-slark/slark/logger"
 	"runtime"
 )
 
-func Recovery() Middleware {
+func Recovery(l logger.Logger) Middleware {
 	return func(handler Handler) Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			var err error
 			defer func() {
 				if e := recover(); e != nil {
-					buf := (&bytes.Buffer{}).Bytes()
+					buf := make([]byte, 64<<10) // buf:64k
 					n := runtime.Stack(buf, false)
 					buf = buf[:n]
-					fmt.Printf("%v: %+v\n%s\n", e, req, buf)
+					fields := map[string]interface{}{
+						"error": e,
+						"req":   fmt.Sprintf("%+v", req),
+						"stack": fmt.Sprintf("%s", buf),
+					}
+					l.Log(ctx, logger.ErrorLevel, fields, "recovery")
 					err = errors.InternalServer("unknown error", "unknown error")
 				}
 			}()

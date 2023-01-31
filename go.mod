@@ -13,6 +13,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.0
 	github.com/pkg/errors v0.9.1
 	github.com/rakyll/statik v0.1.7
+	github.com/sirupsen/logrus v1.9.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	golang.org/x/sync v0.1.0
 	golang.org/x/text v0.5.0
