@@ -9,7 +9,9 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/logger/engine_logger/mw_logger"
+	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
+	cors "github.com/rs/cors/wrapper/gin"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"net/http"
@@ -80,6 +82,21 @@ func BuildRequestId(opts ...pkg.Option) gin.HandlerFunc {
 
 func GetRequestId(ctx *gin.Context) string {
 	return ctx.Writer.Header().Get(pkg.TraceID)
+}
+
+func CORS(opts ...middleware.CORSOption) gin.HandlerFunc {
+	options := cors.Options{
+		AllowCredentials: true,
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
+		AllowOriginFunc:  func(origin string) bool { return true },
+		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", pkg.Authorization, "Content-Disposition"},
+		ExposedHeaders:   []string{pkg.Authorization, "Content-Disposition"},
+		MaxAge:           43200, // 12 Hours
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+	return cors.New(options)
 }
 
 type ProtoJson struct {

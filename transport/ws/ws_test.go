@@ -7,7 +7,7 @@ import (
 )
 
 func TestWebsocket(t *testing.T) {
-	srv := NewServer(WithAddress("0.0.0.0:9090"), WithPath("/ws"))
+	srv := NewServer(Address("0.0.0.0:9090"), Path("/ws"))
 	srv.Handler(func(w http.ResponseWriter, r *http.Request) {
 		session, err := srv.NewSession(w, r)
 		if err != nil {
