@@ -33,7 +33,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 		)
 
 		newCtx := context.TODO()
-		err = ctx.ShouldBind(in)
+		err = ctx.ShouldBind(&in)
 		if err != nil {
 			err = errors.NewError(errors.FormatInvalidCode, errors.FormatInvalid, errors.FormatInvalid)
 			goto Label

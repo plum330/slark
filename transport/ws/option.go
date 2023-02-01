@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"github.com/go-slark/slark/middleware"
 	"time"
 )
 
@@ -12,30 +13,36 @@ func WithNetwork(network string) ServerOption {
 	}
 }
 
-func WithAddress(addr string) ServerOption {
+func Address(addr string) ServerOption {
 	return func(s *Server) {
 		s.address = addr
 	}
 }
 
-func WithTimeout(rTimeout, wTimeout time.Duration) ServerOption {
+func Timeout(rTimeout, wTimeout time.Duration) ServerOption {
 	return func(s *Server) {
 		s.Server.ReadTimeout = rTimeout
 		s.Server.WriteTimeout = wTimeout
 	}
 }
 
-func WithPath(path string) ServerOption {
+func Path(path string) ServerOption {
 	return func(s *Server) {
 		s.path = path
 	}
 }
 
-func WithConnOption(opts ...Option) ServerOption {
+func ConnOpt(opts ...Option) ServerOption {
 	return func(server *Server) {
 		for _, opt := range opts {
 			opt(server.ConnOption)
 		}
+	}
+}
+
+func Filter(filters ...middleware.HandlerFunc) ServerOption {
+	return func(server *Server) {
+		server.filters = filters
 	}
 }
 
