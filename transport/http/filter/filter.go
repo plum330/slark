@@ -15,15 +15,15 @@ func Handle(handler http.Handler, mw ...Handler) http.Handler {
 	return handler
 }
 
-func HandleMiddlewares(mw ...middleware.Middleware) http.HandlerFunc {
+func HandleFilters(mw ...middleware.Middleware) Handler {
 	middle := middleware.HandleMiddleware(mw...)
-	return func(w http.ResponseWriter, r *http.Request) {
-		next := func(ctx context.Context, req interface{}) (interface{}, error) {
-			var err error
-			// TODO ....
-			return w, err
-		}
-		_, _ = middle(next)(r.Context(), r)
-
+	return func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next := func(ctx context.Context, req interface{}) (interface{}, error) {
+				handler.ServeHTTP(w, r)
+				return nil, nil
+			}
+			_, _ = middle(next)(r.Context(), r)
+		})
 	}
 }
