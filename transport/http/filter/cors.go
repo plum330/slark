@@ -40,17 +40,19 @@ func MaxAge(age int) CORSOption {
 	}
 }
 
-func CORS(opts ...CORSOption) http.HandlerFunc {
-	options := cors.Options{
-		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
-		AllowOriginFunc:  func(origin string) bool { return true },
-		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", pkg.Authorization, "Content-Disposition"},
-		ExposedHeaders:   []string{pkg.Authorization, "Content-Disposition"},
-		MaxAge:           43200, // 12 Hours
+func CORS(opts ...CORSOption) Handler {
+	return func(handler http.Handler) http.Handler {
+		options := cors.Options{
+			AllowCredentials: true,
+			AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
+			AllowOriginFunc:  func(origin string) bool { return true },
+			AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", pkg.Authorization, "Content-Disposition"},
+			ExposedHeaders:   []string{pkg.Authorization, "Content-Disposition"},
+			MaxAge:           43200, // 12 Hours
+		}
+		for _, opt := range opts {
+			opt(&options)
+		}
+		return cors.New(options).Handler(handler)
 	}
-	for _, opt := range opts {
-		opt(&options)
-	}
-	return cors.New(options).HandlerFunc
 }

@@ -34,7 +34,7 @@ func Engine(param *EngineParam) ServerOption {
 		engine := server.Engine
 		engine.Use(gin.CustomRecovery(func(ctx *gin.Context, err interface{}) {
 			ctx.Render(http.StatusOK, render.JSON{
-				Data: errors.NewError(errors.PanicCode, errors.Panic, errors.Panic).WithSurplus(err),
+				Data: errors.InternalServer(errors.Panic, errors.Panic).WithSurplus(err),
 			})
 			ctx.Abort()
 		}))
