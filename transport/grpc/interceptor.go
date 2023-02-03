@@ -19,9 +19,9 @@ import (
 
 func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		return middleware.HandleMiddleware(func(ctx context.Context, req interface{}) (interface{}, error) {
+		return middleware.HandleMiddleware(s.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return handler(ctx, req)
-		}, s.mw...)(ctx, req)
+		})(ctx, req)
 	}
 }
 

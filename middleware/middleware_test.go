@@ -7,7 +7,7 @@ import (
 )
 
 func TestMiddleware(t *testing.T) {
-	_, _ = HandleMiddleware(hello(), firstMiddleware(), secondMiddleware())(context.TODO(), "$$$")
+	_, _ = HandleMiddleware(firstMiddleware(), secondMiddleware())(hello())(context.TODO(), "$$$")
 }
 
 // handler program

@@ -11,7 +11,6 @@ import (
 	"github.com/go-slark/slark/logger/engine_logger/mw_logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
-	cors "github.com/rs/cors/wrapper/gin"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"net/http"
@@ -84,21 +83,6 @@ func GetRequestId(ctx *gin.Context) string {
 	return ctx.Writer.Header().Get(pkg.TraceID)
 }
 
-func CORS(opts ...middleware.CORSOption) gin.HandlerFunc {
-	options := cors.Options{
-		AllowCredentials: true,
-		AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
-		AllowOriginFunc:  func(origin string) bool { return true },
-		AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", pkg.Authorization, "Content-Disposition"},
-		ExposedHeaders:   []string{pkg.Authorization, "Content-Disposition"},
-		MaxAge:           43200, // 12 Hours
-	}
-	for _, opt := range opts {
-		opt(&options)
-	}
-	return cors.New(options)
-}
-
 type ProtoJson struct {
 	Code    int
 	TraceID interface{}
@@ -147,5 +131,21 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 			ctx.Abort()
 		}
 		ctx.JSON(http.StatusOK, rsp)
+	}
+}
+
+func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
+	middle := middleware.HandleMiddleware(mw...)
+	return func(c *gin.Context) {
+		next := func(ctx context.Context, req interface{}) (interface{}, error) {
+			c.Next()
+			var err error
+			status := c.Writer.Status()
+			if status >= http.StatusBadRequest {
+				err = errors.NewError(status, errors.UnknownReason, errors.UnknownReason)
+			}
+			return c.Writer, err
+		}
+		_, _ = middle(next)(c.Request.Context(), c.Request)
 	}
 }

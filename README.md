@@ -14,4 +14,6 @@ TODO list:
 
 4.ws session mng管理特性
 
+5.benchmark
+
 全面拥抱k8s，暂不支持自定义注册中心
