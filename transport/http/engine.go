@@ -80,7 +80,7 @@ type ProtoJson struct {
 	Code    int
 	TraceID interface{}
 	Msg     string
-	proto.Message
+	Data    proto.Message
 }
 
 var MarshalOptions = protojson.MarshalOptions{
@@ -93,7 +93,7 @@ func (p ProtoJson) Render(w http.ResponseWriter) (err error) {
 	if val := header["Content-Type"]; len(val) == 0 {
 		header["Content-Type"] = []string{"application/json; charset=utf-8"}
 	}
-	jsonBytes, err := MarshalOptions.Marshal(p)
+	jsonBytes, err := MarshalOptions.Marshal(p.Data)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		rsp := &ProtoJson{TraceID: ctx.Request.Context().Value(pkg.TraceID)}
 		rsp.Msg = "成功"
-		rsp.Message = out
+		rsp.Data = out
 		if err != nil {
 			e := errors.GetErr(err)
 			rsp.Code = int(e.Status.Code)
@@ -142,7 +142,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 			rsp := &ProtoJson{TraceID: reqCtx.Value(pkg.TraceID)}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message
-			ctx.Render(http.StatusOK, rsp)
+			ctx.JSON(http.StatusOK, rsp)
 		}
 	}
 }
