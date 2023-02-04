@@ -19,19 +19,23 @@ func Logger(l logger.Logger) Middleware {
 			}
 			l.Log(ctx, logger.InfoLevel, fields, "request log")
 			rsp, err := handler(ctx, req)
-			latency := time.Since(start).Seconds()
 			fields = map[string]interface{}{
-				"rsp":     fmt.Sprintf("%+v", rsp),
-				"latency": latency,
+				"latency": time.Since(start).Seconds(),
 			}
-			l.Log(ctx, logger.InfoLevel, fields, "response log")
+			var (
+				level uint
+				msg   string
+			)
 			if err != nil {
-				fields = map[string]interface{}{
-					"err":     fmt.Errorf("%+v", err),
-					"latency": latency,
-				}
-				l.Log(ctx, logger.ErrorLevel, fields, "error log")
+				fields["err"] = fmt.Errorf("%+v", err)
+				level = logger.ErrorLevel
+				msg = "error log"
+			} else {
+				fields["rsp"] = fmt.Sprintf("%+v", rsp)
+				level = logger.InfoLevel
+				msg = "response log"
 			}
+			l.Log(ctx, level, fields, msg)
 			return rsp, err
 		}
 	}

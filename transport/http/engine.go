@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/render"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/logger/engine_logger/mw_logger"
@@ -32,12 +31,6 @@ func Engine(param *EngineParam) ServerOption {
 	return func(server *Server) {
 		gin.SetMode(param.Mode)
 		engine := server.Engine
-		engine.Use(gin.CustomRecovery(func(ctx *gin.Context, err interface{}) {
-			ctx.Render(http.StatusOK, render.JSON{
-				Data: errors.InternalServer(errors.Panic, errors.Panic).WithSurplus(err),
-			})
-			ctx.Abort()
-		}))
 		engine.Use(BuildRequestId())
 		engine.Use(mw_logger.ErrLogger(param.Logger))
 		if param.AccessLog {
@@ -136,16 +129,20 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 
 func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 	middle := middleware.HandleMiddleware(mw...)
-	return func(c *gin.Context) {
-		next := func(ctx context.Context, req interface{}) (interface{}, error) {
-			c.Next()
-			var err error
-			status := c.Writer.Status()
-			if status >= http.StatusBadRequest {
-				err = errors.NewError(status, errors.UnknownReason, errors.UnknownReason)
-			}
-			return c.Writer, err
+	return func(ctx *gin.Context) {
+		reqCtx := ctx.Request.Context()
+		_, err := middle(func(ctx context.Context, req interface{}) (interface{}, error) {
+			// TODO
+			return nil, nil
+		})(reqCtx, ctx.Request)
+		if err != nil {
+			ctx.Abort()
+			_ = ctx.Error(err)
+			e := errors.GetErr(err)
+			rsp := &ProtoJson{TraceID: reqCtx.Value(pkg.TraceID)}
+			rsp.Code = int(e.Status.Code)
+			rsp.Msg = e.Status.Message
+			ctx.Render(http.StatusOK, rsp)
 		}
-		_, _ = middle(next)(c.Request.Context(), c.Request)
 	}
 }
