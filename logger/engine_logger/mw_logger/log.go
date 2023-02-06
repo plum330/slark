@@ -19,6 +19,7 @@ func ErrLogger(l logger.Logger) gin.HandlerFunc {
 				fields := map[string]interface{}{
 					"surplus": ce.Surplus,
 					"meta":    ce.Metadata,
+					"reason":  ce.Reason,
 					"code":    ce.Code,
 					"error":   ce.Unwrap(),
 				}
