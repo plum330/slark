@@ -9,6 +9,7 @@ package retry
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -25,6 +26,7 @@ type Option struct {
 	f         Func
 	timer     func(time.Duration) <-chan time.Time
 	ctx       context.Context
+	debug     bool
 }
 
 func NewOption(opts ...Opt) *Option {
@@ -91,6 +93,12 @@ func Context(ctx context.Context) Opt {
 	}
 }
 
+func Debug(debug bool) Opt {
+	return func(o *Option) {
+		o.debug = debug
+	}
+}
+
 func BackOff(n int, o *Option) time.Duration {
 	// 1 << 63 would overflow signed int64 (time.Duration), thus 62.
 	max := 62
@@ -106,26 +114,25 @@ func BackOff(n int, o *Option) time.Duration {
 	return o.delay << n
 }
 
-func Fixed(_ uint, o *Option) time.Duration {
+func Fixed(_ int, o *Option) time.Duration {
 	return o.delay
 }
 
-func Random(_ uint, o *Option) time.Duration {
+func Random(_ int, o *Option) time.Duration {
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 	return time.Duration(rand.Int63n(int64(o.maxJitter)))
 }
 
 func Group(fs ...Func) Func {
-	const maxInt64 = uint64(math.MaxInt64)
 	return func(n int, o *Option) time.Duration {
-		var total uint64
+		var total time.Duration
 		for _, f := range fs {
-			total += uint64(f(n, o))
-			if total > maxInt64 {
-				total = maxInt64
+			total += f(n, o)
+			if total > math.MaxInt64 {
+				total = math.MaxInt64
 			}
 		}
-		return time.Duration(total)
+		return total
 	}
 }
 
@@ -136,18 +143,14 @@ func Timer(timer func(d time.Duration) <-chan time.Time) Opt {
 }
 
 func (o *Option) Retry(fn func() error) error {
-	var (
-		n   int
-		err error
-	)
-	for i := 0; i < o.retry; i++ {
-		n++
+	var err error
+	for n := 1; n <= o.retry; n++ {
 		err = fn()
 		if err == nil {
 			break
 		}
 
-		if n == o.retry-1 {
+		if n == o.retry {
 			break
 		}
 
@@ -163,6 +166,9 @@ func delay(o *Option, n int) time.Duration {
 	delayTime := o.f(n, o)
 	if o.maxDelay > 0 && delayTime > o.maxDelay {
 		delayTime = o.maxDelay
+	}
+	if o.debug {
+		fmt.Println("current relative time, delay time: ", delayTime, "max delay time:", o.maxDelay)
 	}
 	return delayTime
 }
