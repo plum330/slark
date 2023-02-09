@@ -6,13 +6,7 @@ base framework lib
 
 TODO list:
 
-1.基础http请求支持recovery validate中间件特性
-
-2.pprof特性 **
-
 3.配置中心特性
-
-4.ws session mng管理特性
 
 5.benchmark
 

@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"github.com/go-slark/slark/middleware"
 	"google.golang.org/grpc"
 	"net"
 	"time"
@@ -22,6 +23,7 @@ type Client struct {
 	opts     []grpc.DialOption
 	unary    []grpc.UnaryClientInterceptor
 	stream   []grpc.StreamClientInterceptor
+	mw       []middleware.Middleware
 }
 
 func NewClient(opts ...ClientOption) *Client {
@@ -39,9 +41,11 @@ func NewClient(opts ...ClientOption) *Client {
 	}
 
 	var grpcOpts []grpc.DialOption
+	unary := []grpc.UnaryClientInterceptor{cli.unaryClientInterceptor()}
 	if len(cli.unary) > 0 {
-		grpcOpts = append(grpcOpts, grpc.WithChainUnaryInterceptor(cli.unary...))
+		unary = append(unary, cli.unary...)
 	}
+	grpcOpts = append(grpcOpts, grpc.WithChainUnaryInterceptor(unary...))
 	if len(cli.stream) > 0 {
 		grpcOpts = append(grpcOpts, grpc.WithChainStreamInterceptor(cli.stream...))
 	}
@@ -88,5 +92,11 @@ func WithUnaryInterceptor(unary []grpc.UnaryClientInterceptor) ClientOption {
 func WithStreamInterceptor(stream []grpc.StreamClientInterceptor) ClientOption {
 	return func(client *Client) {
 		client.stream = stream
+	}
+}
+
+func WithMiddle(mw []middleware.Middleware) ClientOption {
+	return func(client *Client) {
+		client.mw = mw
 	}
 }

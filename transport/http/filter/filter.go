@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-type Handler func(handler http.Handler) http.Handler
+type Handler = func(handler http.Handler) http.Handler
 
 func Handle(handler http.Handler, mw ...Handler) http.Handler {
 	for i := len(mw) - 1; i >= 0; i-- {
