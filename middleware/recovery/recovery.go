@@ -1,15 +1,16 @@
-package middleware
+package recovery
 
 import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
+	"github.com/go-slark/slark/middleware"
 	"runtime"
 )
 
-func Recovery(l logger.Logger) Middleware {
-	return func(handler Handler) Handler {
+func Recovery(l logger.Logger) middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			var err error
 			defer func() {

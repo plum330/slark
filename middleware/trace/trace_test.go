@@ -1,13 +1,17 @@
 package trace
 
 import (
+	"context"
 	"fmt"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	"go.opentelemetry.io/otel/exporters/zipkin"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/semconv/v1.17.0"
+	"log"
+	"os"
 	"testing"
 )
 
@@ -27,6 +31,7 @@ func TestStdoutTrace(t *testing.T) {
 			semconv.ServiceVersion("0.0.1"),
 		)),
 	)
+	defer tp.Shutdown(context.TODO())
 	HTTPServerTrace(Provider(tp))
 }
 
@@ -46,5 +51,29 @@ func TestJaegerTrace(t *testing.T) {
 			attribute.String("env", "dev"),
 		)),
 	)
+	defer tp.Shutdown(context.TODO())
+	HTTPServerTrace(Provider(tp))
+}
+
+// zipkin in mem
+
+func TestZipkinTrace(t *testing.T) {
+	exporter, err := zipkin.New(
+		"http://127.0.0.1:9411/api/v2/spans", // url
+		zipkin.WithLogger(log.New(os.Stderr, "zipkin-example", log.Ldate|log.Ltime|log.Llongfile)),
+	)
+	if err != nil {
+		fmt.Printf("zipkin init err:%+v\n", err)
+		return
+	}
+
+	tp := trace.NewTracerProvider(
+		trace.WithSpanProcessor(trace.NewBatchSpanProcessor(exporter)),
+		trace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceName("zipkin-test"),
+		)),
+	)
+	defer tp.Shutdown(context.TODO())
 	HTTPServerTrace(Provider(tp))
 }

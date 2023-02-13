@@ -1,16 +1,17 @@
-package middleware
+package logger
 
 import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/logger"
+	"github.com/go-slark/slark/middleware"
 	"time"
 )
 
 // server log
 
-func Logger(l logger.Logger) Middleware {
-	return func(handler Handler) Handler {
+func Logger(l logger.Logger) middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			start := time.Now()
 			fields := map[string]interface{}{

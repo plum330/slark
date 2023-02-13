@@ -1,8 +1,9 @@
-package middleware
+package validate
 
 import (
 	"context"
 	"github.com/go-slark/slark/errors"
+	"github.com/go-slark/slark/middleware"
 )
 
 type Validator interface {
@@ -10,8 +11,8 @@ type Validator interface {
 	Validate() error
 }
 
-func Validate() Middleware {
-	return func(handler Handler) Handler {
+func Validate() middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			v, ok := req.(Validator)
 			if ok {

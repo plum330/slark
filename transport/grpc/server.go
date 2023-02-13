@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/validate"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -38,7 +40,7 @@ func NewServer(opts ...ServerOption) *Server {
 	if len(srv.mw) == 0 {
 		srv.mw = make([]middleware.Middleware, 0)
 	}
-	srv.mw = append(srv.mw, middleware.Validate(), middleware.Recovery(srv.logger))
+	srv.mw = append(srv.mw, validate.Validate(), recovery.Recovery(srv.logger))
 
 	var grpcOpts []grpc.ServerOption
 	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
