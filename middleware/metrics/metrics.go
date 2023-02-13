@@ -20,8 +20,10 @@ type counter struct {
 }
 
 func NewCounter(opts prometheus.CounterOpts, labels []string) Counter {
+	vec := prometheus.NewCounterVec(opts, labels)
+	prometheus.MustRegister(vec)
 	return &counter{
-		CounterVec: prometheus.NewCounterVec(opts, labels),
+		CounterVec: vec,
 	}
 }
 
@@ -40,8 +42,6 @@ func (c *counter) Values(values ...string) Counter {
 	}
 }
 
-// gauge
-
 type Gauge interface {
 	Set(float64)
 	Inc()
@@ -55,8 +55,10 @@ type gauge struct {
 }
 
 func NewGauge(opts prometheus.GaugeOpts, labels []string) Gauge {
+	vec := prometheus.NewGaugeVec(opts, labels)
+	prometheus.MustRegister(vec)
 	return &gauge{
-		GaugeVec: prometheus.NewGaugeVec(opts, labels),
+		GaugeVec: vec,
 	}
 }
 
@@ -79,8 +81,6 @@ func (g *gauge) Values(values ...string) Gauge {
 	}
 }
 
-// histogram
-
 type Histogram interface {
 	Observe(float64)
 	Values(...string) Histogram
@@ -92,8 +92,10 @@ type histogram struct {
 }
 
 func NewHistogram(opts prometheus.HistogramOpts, labels []string) Histogram {
+	vec := prometheus.NewHistogramVec(opts, labels)
+	prometheus.MustRegister(vec)
 	return &histogram{
-		HistogramVec: prometheus.NewHistogramVec(opts, labels),
+		HistogramVec: vec,
 	}
 }
 
@@ -107,8 +109,6 @@ func (h *histogram) Values(values ...string) Histogram {
 		labelValues:  values,
 	}
 }
-
-// mw
 
 type option struct {
 	counter   Counter
@@ -136,7 +136,7 @@ func WithHistogram(h Histogram) Options {
 	}
 }
 
-func HTTPMetrics(opts ...Options) func(http.Handler) http.Handler {
+func HTTPMetrics(opts ...Options) middleware.HTTPMiddleware {
 	o := &option{}
 	for _, opt := range opts {
 		opt(o)
@@ -166,7 +166,11 @@ func GRPCMetrics(opts ...Options) middleware.Middleware {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			tm := time.Now()
 			rsp, err := handler(ctx, req)
-			method, _ := ctx.Value(struct{}{}).(string)
+			m, _ := ctx.Value(struct{}{}).(map[string]string)
+			var method string
+			for k := range m {
+				method = k
+			}
 			if o.counter != nil {
 				o.counter.Values(method).Inc()
 			}
