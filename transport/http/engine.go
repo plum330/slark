@@ -128,7 +128,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 }
 
 func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
-	middle := middleware.HandleMiddleware(mw...)
+	middle := middleware.ComposeMiddleware(mw...)
 	return func(ctx *gin.Context) {
 		reqCtx := ctx.Request.Context()
 		_, err := middle(func(ctx context.Context, req interface{}) (interface{}, error) {

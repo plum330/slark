@@ -1,7 +1,7 @@
 package ws
 
 import (
-	"github.com/go-slark/slark/transport/http/filter"
+	"github.com/go-slark/slark/middleware"
 	"time"
 )
 
@@ -40,9 +40,9 @@ func ConnOpt(opts ...Option) ServerOption {
 	}
 }
 
-func Filter(filters ...filter.Handler) ServerOption {
+func Handle(handlers ...middleware.HTTPMiddleware) ServerOption {
 	return func(server *Server) {
-		server.filters = filters
+		server.handlers = handlers
 	}
 }
 

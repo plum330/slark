@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/go-slark/slark/transport/http/handler"
+	"github.com/go-slark/slark/middleware"
 	"net"
 	"net/http"
 )
@@ -12,7 +12,7 @@ import (
 type Server struct {
 	*http.Server
 	listener net.Listener
-	handlers []filter.Handler // cors...
+	handlers []middleware.HTTPMiddleware // cors...
 	err      error
 	network  string
 	address  string
@@ -39,7 +39,7 @@ func Handler(handler http.Handler) ServerOption {
 	}
 }
 
-func Handlers(handlers ...filter.Handler) ServerOption {
+func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
 	return func(server *Server) {
 		server.handlers = handlers
 	}
@@ -57,7 +57,7 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.Handler = filter.Handle(srv.Handler, srv.handlers...)
+	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
 }

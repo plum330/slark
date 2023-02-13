@@ -3,8 +3,8 @@ package ws
 import (
 	"context"
 	"errors"
+	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
-	"github.com/go-slark/slark/transport/http/filter"
 	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
@@ -16,7 +16,7 @@ import (
 
 type Server struct {
 	*http.Server
-	filters []filter.Handler
+	handlers []middleware.HTTPMiddleware
 	*ConnOption
 
 	ug       *websocket.Upgrader
@@ -80,7 +80,7 @@ func (s *Server) Start() error {
 		return s.err
 	}
 
-	http.Handle(s.path, filter.Handle(s.handler, s.filters...))
+	http.Handle(s.path, middleware.ComposeHTTPMiddleware(s.handler, s.handlers...))
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
