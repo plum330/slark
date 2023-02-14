@@ -15,8 +15,8 @@ func Logger(l logger.Logger) middleware.Middleware {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			start := time.Now()
 			fields := map[string]interface{}{
-				"req":   fmt.Sprintf("%+v", req),
-				"start": start,
+				"request": fmt.Sprintf("%+v", req),
+				"start":   start.Format(time.RFC3339),
 			}
 			l.Log(ctx, logger.InfoLevel, fields, "request log")
 			rsp, err := handler(ctx, req)
@@ -28,11 +28,11 @@ func Logger(l logger.Logger) middleware.Middleware {
 				msg   string
 			)
 			if err != nil {
-				fields["err"] = fmt.Errorf("%+v", err)
+				fields["error"] = fmt.Errorf("%+v", err)
 				level = logger.ErrorLevel
 				msg = "error log"
 			} else {
-				fields["rsp"] = fmt.Sprintf("%+v", rsp)
+				fields["response"] = fmt.Sprintf("%+v", rsp)
 				level = logger.InfoLevel
 				msg = "response log"
 			}

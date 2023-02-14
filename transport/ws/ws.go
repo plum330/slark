@@ -221,12 +221,18 @@ func (s *Session) handleHB() {
 	})
 
 	for {
-		ts := atomic.LoadInt64(&s.hbTime)
-		if time.Now().Unix()-ts > int64(s.hbInterval) {
-			s.Close()
-			break
+		select {
+		case <-s.closing:
+			return
+
+		default:
+			ts := atomic.LoadInt64(&s.hbTime)
+			if time.Now().Unix()-ts > int64(s.hbInterval) {
+				s.Close()
+				return
+			}
+			time.Sleep(2 * time.Second)
 		}
-		time.Sleep(2 * time.Second)
 	}
 }
 

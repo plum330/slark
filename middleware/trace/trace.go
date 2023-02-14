@@ -97,7 +97,7 @@ func (t *Tracer) Stop(_ context.Context, span trace.Span, m interface{}, err err
 	span.End()
 }
 
-func HTTPServerTrace(opts ...Option) func(http.Handler) http.Handler {
+func HTTPServerTrace(opts ...Option) middleware.HTTPMiddleware {
 	tracer := NewTracer(trace.SpanKindServer, opts...)
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

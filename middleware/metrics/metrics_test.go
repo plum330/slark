@@ -58,6 +58,7 @@ func TestHistogram(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+/*
 var (
 	rpcServerSeconds = NewHistogram(prometheus.HistogramOpts{
 		Namespace: "rpc-server",
@@ -104,3 +105,4 @@ var (
 		Help:      "http server requests count.",
 	}, []string{"path", "method"})
 )
+*/

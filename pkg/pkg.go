@@ -7,6 +7,9 @@ const (
 	TraceID       = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"
+
+	Target = "x-target"
+	Method = "x-method"
 )
 
 func BuildRequestID() string {

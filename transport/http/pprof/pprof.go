@@ -1,16 +1,33 @@
 package pprof
 
 import (
+	"context"
 	"net/http"
-	"net/http/pprof"
+	_ "net/http/pprof"
 )
 
-func NewHandler() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/debug/pprof/", pprof.Index)
-	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-	return mux
+type Server struct {
+	*http.Server
+}
+
+func NewServer(addr string) *Server {
+	return &Server{
+		Server: &http.Server{
+			Addr: addr,
+		},
+	}
+}
+
+func (s *Server) Start() error {
+	if len(s.Addr) == 0 {
+		return nil
+	}
+	return s.ListenAndServe()
+}
+
+func (s *Server) Stop(ctx context.Context) error {
+	if len(s.Addr) == 0 {
+		return nil
+	}
+	return s.Shutdown(ctx)
 }
