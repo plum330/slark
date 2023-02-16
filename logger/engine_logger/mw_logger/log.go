@@ -18,7 +18,7 @@ func ErrLogger(l logger.Logger) gin.HandlerFunc {
 				fields := map[string]interface{}{
 					"meta":  err.Meta,
 					"type":  err.Type,
-					"error": fmt.Sprintf("%+v", err),
+					"error": fmt.Sprintf("%+v", err.Err),
 				}
 				l.Log(context, logger.ErrorLevel, fields, "系统异常")
 			} else {
@@ -27,7 +27,7 @@ func ErrLogger(l logger.Logger) gin.HandlerFunc {
 					"reason":  ce.Reason,
 					"code":    ce.Code,
 					"surplus": ce.Surplus,
-					"error":   fmt.Printf("%+v", err.Err),
+					"error":   fmt.Sprintf("%+v", err.Err),
 				}
 				l.Log(context, logger.ErrorLevel, fields, ce.Message)
 			}

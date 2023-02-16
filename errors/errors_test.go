@@ -1,12 +1,15 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
 
 func BaseError() error {
-	return New(599, "base error", "base error").WithMessage("first error")
+	return New(599, "base error", "base error").WithMessage("first error").
+		WithError(errors.New("with errors")).WithReason("77777").WithSurplus("ffff").
+		WithMetadata(map[string]string{"meta": "uuuuuuuu"})
 }
 
 func WrapError() error {

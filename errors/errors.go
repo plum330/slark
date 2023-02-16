@@ -241,7 +241,6 @@ func (e *Error) Stack() string {
 	}
 
 	var (
-		ok    bool
 		err   = e
 		index = 1
 		infos []*stackInfo
@@ -259,7 +258,7 @@ func (e *Error) Stack() string {
 			break
 		}
 
-		err, ok = err.error.(*Error)
+		ee, ok := err.error.(*Error)
 		if !ok {
 			infos = append(infos, &stackInfo{
 				index: index,
@@ -268,6 +267,7 @@ func (e *Error) Stack() string {
 			index++
 			break
 		}
+		err = ee
 	}
 	removeExtraStackLines(infos)
 	return formattingStackInfos(infos)
