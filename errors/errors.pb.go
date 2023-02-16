@@ -25,10 +25,10 @@ type Status struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Code     int32             `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	Reason   string            `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
-	Message  string            `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
-	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	Code     int32             `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`                                                                                                // 错误码
+	Reason   string            `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`                                                                                             // 业务错误提示
+	Message  string            `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                                                                                           // 用户可读提示
+	Metadata map[string]string `protobuf:"bytes,4,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // 错误附加信息
 }
 
 func (x *Status) Reset() {

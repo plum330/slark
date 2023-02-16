@@ -6,7 +6,6 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
-	"runtime"
 )
 
 func Recovery(l logger.Logger) middleware.Middleware {
@@ -15,16 +14,16 @@ func Recovery(l logger.Logger) middleware.Middleware {
 			var err error
 			defer func() {
 				if e := recover(); e != nil {
-					buf := make([]byte, 64<<10) // buf size : 64k
-					n := runtime.Stack(buf, false)
-					buf = buf[:n]
+					//buf := make([]byte, 64<<10) // buf size : 64k
+					//n := runtime.Stack(buf, false)
+					//buf = buf[:n]
 					fields := map[string]interface{}{
-						"error": e,
-						"req":   fmt.Sprintf("%+v", req),
-						"stack": fmt.Sprintf("%s", buf),
+						"req": fmt.Sprintf("%+v", req),
+						//"error": fmt.Sprintf("%s", buf),
+						"error": fmt.Sprintf("%+v", errors.New(errors.PanicCode, errors.Panic, errors.Panic)),
 					}
-					l.Log(ctx, logger.ErrorLevel, fields, "recovery")
-					err = errors.InternalServer("unknown error", "unknown error")
+					l.Log(ctx, logger.ErrorLevel, fields, "recover")
+					err = errors.InternalServer(errors.Panic, errors.Panic)
 				}
 			}()
 			rsp, err := handler(ctx, req)

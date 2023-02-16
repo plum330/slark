@@ -1,6 +1,7 @@
 package mw_logger
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
@@ -14,14 +15,19 @@ func ErrLogger(l logger.Logger) gin.HandlerFunc {
 		for _, err := range ctx.Errors {
 			ce, ok := err.Err.(*errors.Error)
 			if !ok {
-				l.Log(context, logger.ErrorLevel, map[string]interface{}{"meta": err.Meta, "error": err.Err}, "系统异常")
+				fields := map[string]interface{}{
+					"meta":  err.Meta,
+					"type":  err.Type,
+					"error": fmt.Sprintf("%+v", err),
+				}
+				l.Log(context, logger.ErrorLevel, fields, "系统异常")
 			} else {
 				fields := map[string]interface{}{
-					"surplus": ce.Surplus,
 					"meta":    ce.Metadata,
 					"reason":  ce.Reason,
 					"code":    ce.Code,
-					"error":   ce.Unwrap(),
+					"surplus": ce.Surplus,
+					"error":   fmt.Printf("%+v", err.Err),
 				}
 				l.Log(context, logger.ErrorLevel, fields, ce.Message)
 			}

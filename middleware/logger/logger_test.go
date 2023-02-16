@@ -10,7 +10,7 @@ import (
 
 type mockLogger struct{}
 
-func (l *mockLogger) Log(ctx context.Context, level uint, fields map[string]interface{}, msg ...interface{}) {
+func (l *mockLogger) Log(ctx context.Context, level uint, fields map[string]interface{}, v ...interface{}) {
 	fmt.Printf("fields:%+v\n", fields)
 }
 

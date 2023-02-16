@@ -1,13 +1,154 @@
 package logger
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"github.com/go-slark/slark/pkg"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
+	"time"
 )
+
+type RawJSONFormatter struct {
+	*logrus.JSONFormatter
+}
+
+func (f *RawJSONFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	data := make(logrus.Fields, len(entry.Data)+4)
+	for k, v := range entry.Data {
+		switch v := v.(type) {
+		case error:
+			// Otherwise errors are ignored by `encoding/json`
+			// https://github.com/sirupsen/logrus/issues/137
+			data[k] = v.Error()
+		default:
+			data[k] = v
+		}
+	}
+
+	if f.DataKey != "" {
+		newData := make(logrus.Fields, 4)
+		newData[f.DataKey] = data
+		data = newData
+	}
+
+	fm := make(fieldMap, len(f.FieldMap))
+	for fk, fv := range f.FieldMap {
+		fm[string(fk)] = fv
+	}
+
+	prefixFieldClashes(data, fm, entry.HasCaller())
+
+	timestampFormat := f.TimestampFormat
+	if timestampFormat == "" {
+		timestampFormat = time.RFC3339
+	}
+
+	if !f.DisableTimestamp {
+		data[fm.resolve(logrus.FieldKeyTime)] = entry.Time.Format(timestampFormat)
+	}
+	data[fm.resolve(logrus.FieldKeyMsg)] = entry.Message
+	data[fm.resolve(logrus.FieldKeyLevel)] = entry.Level.String()
+	if entry.HasCaller() {
+		funcVal := entry.Caller.Function
+		fileVal := fmt.Sprintf("%s:%d", entry.Caller.File, entry.Caller.Line)
+		if f.CallerPrettyfier != nil {
+			funcVal, fileVal = f.CallerPrettyfier(entry.Caller)
+		}
+		if funcVal != "" {
+			data[fm.resolve(logrus.FieldKeyFunc)] = funcVal
+		}
+		if fileVal != "" {
+			data[fm.resolve(logrus.FieldKeyFile)] = fileVal
+		}
+	}
+
+	var b *bytes.Buffer
+	if entry.Buffer != nil {
+		b = entry.Buffer
+	} else {
+		b = &bytes.Buffer{}
+	}
+
+	value := make(map[string]interface{}, len(data))
+	for dk, dv := range data {
+		value[dk] = dv
+	}
+
+	convert(b, value)
+	return b.Bytes(), nil
+}
+
+func convert(buf *bytes.Buffer, data map[string]interface{}) {
+	buf.WriteByte('{')
+	i := 0
+	for k, v := range data {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		buf.WriteString(fmt.Sprintf(`"%s":`, k))
+		switch val := v.(type) {
+		case string:
+			buf.WriteString(fmt.Sprintf(`"%s"`, v))
+		case map[string]interface{}:
+			convert(buf, val)
+		default:
+			buf.WriteString(fmt.Sprintf("%v", v))
+		}
+		i++
+	}
+	buf.WriteByte('}')
+}
+
+func prefixFieldClashes(data logrus.Fields, fieldMap fieldMap, reportCaller bool) {
+	timeKey := fieldMap.resolve(logrus.FieldKeyTime)
+	if t, ok := data[timeKey]; ok {
+		data["fields."+timeKey] = t
+		delete(data, timeKey)
+	}
+
+	msgKey := fieldMap.resolve(logrus.FieldKeyMsg)
+	if m, ok := data[msgKey]; ok {
+		data["fields."+msgKey] = m
+		delete(data, msgKey)
+	}
+
+	levelKey := fieldMap.resolve(logrus.FieldKeyLevel)
+	if l, ok := data[levelKey]; ok {
+		data["fields."+levelKey] = l
+		delete(data, levelKey)
+	}
+
+	logrusErrKey := fieldMap.resolve(logrus.FieldKeyLogrusError)
+	if l, ok := data[logrusErrKey]; ok {
+		data["fields."+logrusErrKey] = l
+		delete(data, logrusErrKey)
+	}
+
+	// If reportCaller is not set, 'func' will not conflict.
+	if reportCaller {
+		funcKey := fieldMap.resolve(logrus.FieldKeyFunc)
+		if l, ok := data[funcKey]; ok {
+			data["fields."+funcKey] = l
+		}
+		fileKey := fieldMap.resolve(logrus.FieldKeyFile)
+		if l, ok := data[fileKey]; ok {
+			data["fields."+fileKey] = l
+		}
+	}
+}
+
+type fieldMap map[string]string
+
+func (f fieldMap) resolve(key string) string {
+	if k, ok := f[key]; ok {
+		return k
+	}
+	return key
+}
 
 type Log struct {
 	*logrus.Logger
@@ -18,9 +159,10 @@ func NewLog(opts ...FuncOpts) *Log {
 		srvName: "Default-Server",
 		level:   logrus.DebugLevel,
 		levels:  logrus.AllLevels,
-		formatter: &logrus.JSONFormatter{
-			TimestampFormat: "2006-01-02 15:04:05.000",
-			PrettyPrint:     false,
+		formatter: &RawJSONFormatter{
+			JSONFormatter: &logrus.JSONFormatter{
+				TimestampFormat: "2006-01-02 15:04:05.000",
+			},
 		},
 		writer: os.Stdout,
 	}
@@ -36,7 +178,7 @@ func NewLog(opts ...FuncOpts) *Log {
 	return &Log{Logger: stdLogger}
 }
 
-func (l *Log) Log(ctx context.Context, level uint, fields map[string]interface{}, msg ...interface{}) {
+func (l *Log) Log(ctx context.Context, level uint, fields map[string]interface{}, v ...interface{}) {
 	var logrusLevel logrus.Level
 	switch level {
 	case DebugLevel:
@@ -56,7 +198,7 @@ func (l *Log) Log(ctx context.Context, level uint, fields map[string]interface{}
 	default:
 		logrusLevel = logrus.DebugLevel
 	}
-	l.WithContext(ctx).WithFields(fields).Log(logrusLevel, msg)
+	l.WithContext(ctx).WithFields(fields).Log(logrusLevel, v)
 }
 
 // logrus opt

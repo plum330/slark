@@ -1,60 +1,103 @@
 package errors
 
 import (
-	"encoding/json"
+	"bytes"
+	"container/list"
 	"fmt"
 	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/status"
-	"net/http"
+	"io"
+	"runtime"
+	"strings"
 )
 
-const (
-	UnknownReason = "UNKNOWN_REASON"
-	UnknownCode   = 600
+const stackDepth = 64
 
-	ParamValid     = "PARAM_VALID"
-	ParamValidCode = 601
-
-	FormatInvalid     = "FORMAT_INVALID"
-	FormatInvalidCode = 602
-
-	Panic     = "PANIC"
-	PanicCode = 603
-
-	errStack = "err_stack"
-
-	SupportPackageIsVersion1 = true
-)
+type stack []uintptr
 
 type Error struct {
 	Status
-	Surplus interface{} `json:"surplus,omitempty"`
-	Err     string      `json:"error,omitempty"`
-	clone   bool
+	stack stack
+	clone bool
 	error
+	Surplus interface{}
 }
 
 func (e *Error) Error() string {
-	if e.error != nil {
-		e.Err = e.error.Error()
+	if e == nil {
+		return ""
 	}
-	err, _ := json.Marshal(e)
-	return string(err)
-	//return fmt.Sprintf("code:%d, reason:%s, msg:%v, metadata:%v, surplus:%v, err:%v", e.Code, e.Reason, e.Message, e.Metadata, e.Surplus, e.error)
+	str := e.Reason
+	if e.error != nil {
+		if str != "" {
+			str += " --> "
+		}
+		str += e.error.Error()
+	}
+	return str
 }
 
-func NewError(code int, reason, msg string) *Error {
+func callers(skip ...int) stack {
+	var (
+		pcs [stackDepth]uintptr
+		n   = 3
+	)
+	if len(skip) > 0 {
+		n += skip[0]
+	}
+	return pcs[:runtime.Callers(n, pcs[:])]
+}
+
+func New(code int, msg, reason string) *Error {
 	return &Error{
 		Status: Status{
 			Code:    int32(code),
 			Reason:  reason,
 			Message: msg,
 		},
+		stack: callers(),
 	}
 }
 
-func GetErr(err error) *Error {
+func Code(err error) int {
+	if err == nil {
+		return 200
+	}
+	return int(FromError(err).Code)
+}
+
+func Reason(err error) string {
+	if err == nil {
+		return UnknownReason
+	}
+	return FromError(err).Reason
+}
+
+func Message(err error) string {
+	if err == nil {
+		return UnknownReason
+	}
+	return FromError(err).Message
+}
+
+func Wrap(err error, text string) error {
+	if err == nil {
+		return nil
+	}
+
+	return &Error{
+		error: err,
+		stack: callers(),
+		Status: Status{
+			Message: Message(err),
+			Reason:  text,
+			Code:    int32(Code(err)),
+		},
+	}
+}
+
+func ParseErr(err error) *Error {
 	e := &Error{
 		Status: Status{
 			Code:    UnknownCode,
@@ -67,12 +110,6 @@ func GetErr(err error) *Error {
 	return e
 }
 
-// grpc error
-
-func (e *Error) Unwrap() error {
-	return e.error
-}
-
 func (e *Error) Is(err error) bool {
 	if se := new(Error); errors.As(err, &se) {
 		return se.Code == e.Code && se.Reason == e.Reason
@@ -82,7 +119,7 @@ func (e *Error) Is(err error) bool {
 
 func (e *Error) WithError(cause error) *Error {
 	err := clone(e)
-	err.error = fmt.Errorf("%+v", cause)
+	err.error = cause
 	return err
 }
 
@@ -92,15 +129,21 @@ func (e *Error) WithMetadata(md map[string]string) *Error {
 	return err
 }
 
-func (e *Error) WithSurplus(surplus interface{}) *Error {
-	err := clone(e)
-	err.Surplus = surplus
-	return err
-}
-
 func (e *Error) WithMessage(msg string) *Error {
 	err := clone(e)
 	err.Message = msg
+	return err
+}
+
+func (e *Error) WithReason(reason string) *Error {
+	err := clone(e)
+	err.Reason = reason
+	return err
+}
+
+func (e *Error) WithSurplus(surplus interface{}) *Error {
+	err := clone(e)
+	err.Surplus = surplus
 	return err
 }
 
@@ -109,30 +152,10 @@ func (e *Error) WithMessage(msg string) *Error {
 func (e *Error) GRPCStatus() *status.Status {
 	eInfo := &errdetails.ErrorInfo{
 		Reason:   e.Reason,
-		Metadata: e.Metadata, // transmit grpc error stack and others by metadata
+		Metadata: e.Metadata,
 	}
-	if e.error != nil {
-		if eInfo.Metadata == nil {
-			eInfo.Metadata = map[string]string{}
-		}
-		eInfo.Metadata[errStack] = fmt.Sprintf("%+v", e.error)
-	}
-	s, _ := status.New(convertToGRPCCode(int(e.Code)), e.Message).WithDetails(eInfo)
+	s, _ := status.New(HTTPToGRPCCode(int(e.Code)), e.Message).WithDetails(eInfo)
 	return s
-}
-
-func Code(err error) int {
-	if err == nil {
-		return http.StatusOK
-	}
-	return int(FromError(err).Code)
-}
-
-func Reason(err error) string {
-	if err == nil {
-		return UnknownReason
-	}
-	return FromError(err).Reason
 }
 
 func clone(err *Error) *Error {
@@ -146,17 +169,15 @@ func clone(err *Error) *Error {
 	}
 	return &Error{
 		error: err.error,
+		stack: err.stack,
 		Status: Status{
 			Code:     err.Code,
 			Reason:   err.Reason,
 			Message:  err.Message,
 			Metadata: metadata,
 		},
-		Surplus: err.Surplus,
 	}
 }
-
-// convert error to Error
 
 func FromError(err error) *Error {
 	if err == nil {
@@ -167,22 +188,176 @@ func FromError(err error) *Error {
 	}
 	gs, ok := status.FromError(err)
 	if !ok {
-		return NewError(UnknownCode, UnknownReason, err.Error())
+		return New(UnknownCode, UnknownReason, err.Error())
 	}
-	ret := NewError(
-		convertFromGRPCCode(gs.Code()),
-		UnknownReason,
-		gs.Message(),
-	)
+	ret := New(GRPCToHTTPCode(gs.Code()), UnknownReason, gs.Message())
 	for _, detail := range gs.Details() {
 		switch d := detail.(type) {
 		case *errdetails.ErrorInfo:
 			ret.Reason = d.Reason
 			ret = ret.WithMetadata(d.Metadata)
-			ret.Err = ret.Metadata[errStack]
-			delete(ret.Metadata, errStack)
 			return ret
 		}
 	}
 	return ret
+}
+
+func (e *Error) Format(s fmt.State, verb rune) {
+	switch verb {
+	case 's', 'v':
+		switch {
+		case s.Flag('-'):
+			if e.Reason != "" {
+				io.WriteString(s, e.Reason)
+			} else {
+				io.WriteString(s, e.Error())
+			}
+		case s.Flag('+'):
+			if verb == 's' {
+				io.WriteString(s, e.Stack())
+			} else {
+				io.WriteString(s, e.Error()+"\n"+e.Stack())
+			}
+		default:
+			io.WriteString(s, e.Error())
+		}
+	}
+}
+
+type stackInfo struct {
+	index int
+	msg   string
+	lines *list.List
+}
+
+type stackLine struct {
+	funcName string
+	lineNo   string
+}
+
+func (e *Error) Stack() string {
+	if e == nil {
+		return ""
+	}
+
+	var (
+		ok    bool
+		err   = e
+		index = 1
+		infos []*stackInfo
+	)
+	for err != nil {
+		info := &stackInfo{
+			index: index,
+			msg:   fmt.Sprintf("%-v", err),
+		}
+		index++
+		infos = append(infos, info)
+		processStack(err.stack, info)
+
+		if err.error == nil {
+			break
+		}
+
+		err, ok = err.error.(*Error)
+		if !ok {
+			infos = append(infos, &stackInfo{
+				index: index,
+				msg:   err.error.Error(),
+			})
+			index++
+			break
+		}
+	}
+	removeExtraStackLines(infos)
+	return formattingStackInfos(infos)
+}
+
+func removeExtraStackLines(infos []*stackInfo) {
+	var (
+		ok      bool
+		mp      = make(map[string]struct{})
+		info    *stackInfo
+		line    *stackLine
+		removes []*list.Element
+	)
+	for i := len(infos) - 1; i >= 0; i-- {
+		info = infos[i]
+		if info.lines == nil {
+			continue
+		}
+
+		l := info.lines.Len()
+		for n, e := 0, info.lines.Front(); n < l; n, e = n+1, e.Next() {
+			line = e.Value.(*stackLine)
+			if _, ok = mp[line.lineNo]; ok {
+				removes = append(removes, e)
+			} else {
+				mp[line.lineNo] = struct{}{}
+			}
+		}
+		if len(removes) > 0 {
+			for _, e := range removes {
+				info.lines.Remove(e)
+			}
+		}
+		removes = removes[:0]
+	}
+}
+
+func formattingStackInfos(infos []*stackInfo) string {
+	buffer := bytes.NewBuffer(nil)
+	for index, info := range infos {
+		buffer.WriteString(fmt.Sprintf("%d. %s\n", index+1, info.msg))
+		if info.lines != nil && info.lines.Len() > 0 {
+			formattingStackLines(buffer, info.lines)
+		}
+	}
+	return buffer.String()
+}
+
+func formattingStackLines(buffer *bytes.Buffer, lines *list.List) string {
+	var (
+		line  *stackLine
+		space = "  "
+		l     = lines.Len()
+	)
+	for i, e := 0, lines.Front(); i < l; i, e = i+1, e.Next() {
+		line = e.Value.(*stackLine)
+		if i >= 9 {
+			space = " "
+		}
+		buffer.WriteString(fmt.Sprintf(
+			"   %d).%s%s\n        %s\n",
+			i+1, space, line.funcName, line.lineNo,
+		))
+	}
+	return buffer.String()
+}
+
+func processStack(pcs stack, info *stackInfo) {
+	if pcs == nil {
+		return
+	}
+
+	for _, pc := range pcs {
+		fn := runtime.FuncForPC(pc - 1)
+		if fn == nil {
+			continue
+		}
+
+		file, line := fn.FileLine(pc - 1)
+		if strings.Contains(file, "<") || strings.Contains(file, " ") {
+			continue
+		}
+
+		if info.lines == nil {
+			info.lines = list.New()
+		}
+
+		info.lines.PushBack(&stackLine{
+			funcName: fn.Name(),
+			lineNo:   fmt.Sprintf(`%s:%d`, file, line),
+		})
+	}
 }

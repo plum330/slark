@@ -117,7 +117,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 		rsp.Msg = "成功"
 		rsp.Data = out
 		if err != nil {
-			e := errors.GetErr(err)
+			e := errors.ParseErr(err)
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message
 			_ = ctx.Error(e)
@@ -138,7 +138,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 		if err != nil {
 			ctx.Abort()
 			_ = ctx.Error(err)
-			e := errors.GetErr(err)
+			e := errors.ParseErr(err)
 			rsp := &ProtoJson{TraceID: reqCtx.Value(pkg.TraceID)}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message

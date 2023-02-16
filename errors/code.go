@@ -5,9 +5,25 @@ import (
 	"net/http"
 )
 
-const ClientClosed = 499
+const (
+	UnknownReason = "UNKNOWN_REASON"
+	UnknownCode   = 600
 
-func convertToGRPCCode(code int) codes.Code {
+	ParamValid     = "PARAM_VALID"
+	ParamValidCode = 601
+
+	FormatInvalid     = "FORMAT_INVALID"
+	FormatInvalidCode = 602
+
+	Panic     = "PANIC"
+	PanicCode = 603
+
+	SupportPackageIsVersion1 = true
+
+	ClientClosed = 499
+)
+
+func HTTPToGRPCCode(code int) codes.Code {
 	switch code {
 	case http.StatusOK:
 		return codes.OK
@@ -37,7 +53,7 @@ func convertToGRPCCode(code int) codes.Code {
 	return codes.Unknown
 }
 
-func convertFromGRPCCode(code codes.Code) int {
+func GRPCToHTTPCode(code codes.Code) int {
 	switch code {
 	case codes.OK:
 		return http.StatusOK
