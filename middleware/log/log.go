@@ -1,4 +1,4 @@
-package logger
+package log
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 // server log
 
-func Logger(l logger.Logger) middleware.Middleware {
+func Log(l logger.Logger) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			start := time.Now()

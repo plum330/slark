@@ -347,7 +347,8 @@ func processStack(pcs stack, info *stackInfo) {
 		}
 
 		file, line := fn.FileLine(pc - 1)
-		if strings.Contains(file, "<") || strings.Contains(file, " ") {
+		// TODO TestxxError: /slark --> " "
+		if strings.Contains(file, "<") || strings.Contains(file, "/slark") {
 			continue
 		}
 
