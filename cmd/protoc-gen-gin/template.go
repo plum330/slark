@@ -32,7 +32,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 			err error
 		)
 
-		newCtx := context.TODO()
+		newCtx := ctx.Request.Context()
 		err = ctx.ShouldBind(&in)
 		if err != nil {
 			err = errors.InternalServer(errors.FormatInvalid, errors.FormatInvalid)
@@ -50,7 +50,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 				continue
 			}
 			
-			newCtx = context.WithValue(ctx.Request.Context(), header[0], header[1])
+			newCtx = context.WithValue(newCtx, header[0], header[1])
 			break
 		}
 		

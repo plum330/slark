@@ -17,12 +17,18 @@ func Recovery(l logger.Logger) middleware.Middleware {
 					//buf := make([]byte, 64<<10) // buf size : 64k
 					//n := runtime.Stack(buf, false)
 					//buf = buf[:n]
+					v, ok := e.(error)
+					if ok && errors.HasStack(v) {
+						err = v
+					} else {
+						err = errors.New(errors.PanicCode, errors.Panic, fmt.Sprintf("%+v", e))
+					}
 					fields := map[string]interface{}{
 						"req": fmt.Sprintf("%+v", req),
 						//"error": fmt.Sprintf("%s", buf),
-						"error": fmt.Sprintf("%+v", errors.New(errors.PanicCode, errors.Panic, errors.Panic)),
+						"error": fmt.Sprintf("%+v", err),
 					}
-					l.Log(ctx, logger.ErrorLevel, fields, "recover")
+					l.Log(ctx, logger.PanicLevel, fields, "recover")
 					err = errors.InternalServer(errors.Panic, errors.Panic)
 				}
 			}()

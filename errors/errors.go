@@ -352,6 +352,12 @@ func processStack(pcs stack, info *stackInfo) {
 			continue
 		}
 
+		// ignore root paths.
+		pathLen := len(rootPath)
+		if pathLen != 0 && len(file) >= pathLen && file[0:pathLen] == rootPath {
+			continue
+		}
+
 		if info.lines == nil {
 			info.lines = list.New()
 		}
@@ -361,4 +367,20 @@ func processStack(pcs stack, info *stackInfo) {
 			lineNo:   fmt.Sprintf(`%s:%d`, file, line),
 		})
 	}
+}
+
+type Stack interface {
+	Error() string
+	Stack() string
+}
+
+func HasStack(err error) bool {
+	_, ok := err.(Stack)
+	return ok
+}
+
+var rootPath string
+
+func init() {
+	rootPath = strings.ReplaceAll(runtime.GOROOT(), "\\", "/")
 }

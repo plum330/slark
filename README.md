@@ -24,3 +24,6 @@ TODO list:
 8.copygen
 
 全面拥抱k8s，暂不支持自定义注册中心
+
+newCtx = context.WithValue(ctx.Request.Context(), header[0], header[1])
+header[0], header[1]对应x-token key, value传递

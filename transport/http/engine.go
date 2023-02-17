@@ -131,9 +131,14 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 	middle := middleware.ComposeMiddleware(mw...)
 	return func(ctx *gin.Context) {
 		reqCtx := ctx.Request.Context()
-		_, err := middle(func(ctx context.Context, req interface{}) (interface{}, error) {
-			// TODO
-			return nil, nil
+		_, err := middle(func(c context.Context, req interface{}) (interface{}, error) {
+			ctx.Next()
+			var err error
+			status := ctx.Writer.Status()
+			if status != http.StatusOK {
+				err = errors.New(status, errors.UnknownReason, errors.UnknownReason)
+			}
+			return ctx.Writer, err
 		})(reqCtx, ctx.Request)
 		if err != nil {
 			ctx.Abort()
