@@ -142,8 +142,10 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 		})(reqCtx, ctx.Request)
 		if err != nil {
 			ctx.Abort()
-			_ = ctx.Error(err)
 			e := errors.ParseErr(err)
+			if e.Message != errors.Panic {
+				_ = ctx.Error(err)
+			}
 			rsp := &ProtoJson{TraceID: reqCtx.Value(pkg.TraceID)}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message

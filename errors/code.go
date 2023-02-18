@@ -9,13 +9,13 @@ const (
 	UnknownReason = "UNKNOWN_REASON"
 	UnknownCode   = 600
 
-	ParamValid     = "PARAM_VALID"
+	InvalidParam   = "PARAM_INVALID"
 	ParamValidCode = 601
 
-	FormatInvalid     = "FORMAT_INVALID"
+	InvalidFormat     = "FORMAT_INVALID"
 	FormatInvalidCode = 602
 
-	Panic     = "PANIC"
+	Panic     = "SERVER_SLEEPY"
 	PanicCode = 603
 
 	SupportPackageIsVersion1 = true

@@ -10,8 +10,7 @@ import (
 
 func Recovery(l logger.Logger) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			var err error
+		return func(ctx context.Context, req interface{}) (rsp interface{}, err error) {
 			defer func() {
 				if e := recover(); e != nil {
 					//buf := make([]byte, 64<<10) // buf size : 64k
@@ -28,11 +27,11 @@ func Recovery(l logger.Logger) middleware.Middleware {
 						//"error": fmt.Sprintf("%s", buf),
 						"error": fmt.Sprintf("%+v", err),
 					}
-					l.Log(ctx, logger.PanicLevel, fields, "recover")
+					l.Log(ctx, logger.ErrorLevel, fields, "recover")
 					err = errors.InternalServer(errors.Panic, errors.Panic)
 				}
 			}()
-			rsp, err := handler(ctx, req)
+			rsp, err = handler(ctx, req)
 			return rsp, err
 		}
 	}

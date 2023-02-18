@@ -1,9 +1,17 @@
 package errors
 
-func BadRequest(reason, msg string) *Error {
-	return New(400, reason, msg)
+func BadRequest(msg, reason string) *Error {
+	return New(400, msg, reason)
 }
 
-func InternalServer(reason, message string) *Error {
-	return New(500, reason, message)
+func InternalServer(msg, reason string) *Error {
+	return New(500, msg, reason)
+}
+
+func ParamInvalid(msg, reason string) *Error {
+	return New(ParamValidCode, msg, reason)
+}
+
+func FormatInvalid(msg, reason string) *Error {
+	return New(FormatInvalidCode, msg, reason)
 }
