@@ -8,6 +8,10 @@ func InternalServer(msg, reason string) *Error {
 	return New(500, msg, reason)
 }
 
+func Unauthorized(msg, reason string) *Error {
+	return New(401, msg, reason)
+}
+
 func ParamInvalid(msg, reason string) *Error {
 	return New(ParamValidCode, msg, reason)
 }
