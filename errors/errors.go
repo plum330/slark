@@ -21,7 +21,7 @@ type Error struct {
 	stack stack
 	clone bool
 	error
-	surplus interface{}
+	Surplus interface{}
 }
 
 func (e *Error) Error() string {
@@ -84,7 +84,7 @@ func Message(err error) string {
 func Surplus(err error) interface{} {
 	var surplus interface{}
 	if err != nil {
-		surplus = FromError(err).surplus
+		surplus = FromError(err).Surplus
 	}
 	return surplus
 }
@@ -105,7 +105,7 @@ func Wrap(err error, text string) error {
 	return &Error{
 		error:   err,
 		stack:   callers(),
-		surplus: Surplus(err),
+		Surplus: Surplus(err),
 		Status: Status{
 			Message:  Message(err),
 			Reason:   text,
@@ -147,7 +147,7 @@ func (e *Error) WithError(cause error) *Error {
 	err.error = cause
 	se := new(Error)
 	if errors.As(cause, &se) {
-		err.surplus = se.surplus
+		err.Surplus = se.Surplus
 		err.Metadata = se.Metadata
 	}
 	return err
@@ -173,7 +173,7 @@ func (e *Error) WithReason(reason string) *Error {
 
 func (e *Error) WithSurplus(surplus interface{}) *Error {
 	err := clone(e)
-	err.surplus = surplus
+	err.Surplus = surplus
 	return err
 }
 
@@ -200,7 +200,7 @@ func clone(err *Error) *Error {
 	return &Error{
 		error:   err.error,
 		stack:   err.stack,
-		surplus: err.surplus,
+		Surplus: err.Surplus,
 		Status: Status{
 			Code:     err.Code,
 			Reason:   err.Reason,
