@@ -3,8 +3,8 @@ package errors
 import (
 	"bytes"
 	"container/list"
+	"errors"
 	"fmt"
-	"github.com/pkg/errors"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/status"
 	"io"
@@ -21,7 +21,7 @@ type Error struct {
 	stack stack
 	clone bool
 	error
-	Surplus interface{}
+	surplus interface{}
 }
 
 func (e *Error) Error() string {
@@ -69,16 +69,32 @@ func Code(err error) int {
 
 func Reason(err error) string {
 	if err == nil {
-		return UnknownReason
+		return ""
 	}
 	return FromError(err).Reason
 }
 
 func Message(err error) string {
 	if err == nil {
-		return UnknownReason
+		return ""
 	}
 	return FromError(err).Message
+}
+
+func Surplus(err error) interface{} {
+	var surplus interface{}
+	if err != nil {
+		surplus = FromError(err).surplus
+	}
+	return surplus
+}
+
+func Metadata(err error) map[string]string {
+	var md map[string]string
+	if err != nil {
+		md = FromError(err).Metadata
+	}
+	return md
 }
 
 func Wrap(err error, text string) error {
@@ -87,12 +103,14 @@ func Wrap(err error, text string) error {
 	}
 
 	return &Error{
-		error: err,
-		stack: callers(),
+		error:   err,
+		stack:   callers(),
+		surplus: Surplus(err),
 		Status: Status{
-			Message: Message(err),
-			Reason:  text,
-			Code:    int32(Code(err)),
+			Message:  Message(err),
+			Reason:   text,
+			Code:     int32(Code(err)),
+			Metadata: Metadata(err),
 		},
 	}
 }
@@ -110,6 +128,13 @@ func ParseErr(err error) *Error {
 	return e
 }
 
+func (e *Error) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.error
+}
+
 func (e *Error) Is(err error) bool {
 	if se := new(Error); errors.As(err, &se) {
 		return se.Code == e.Code && se.Reason == e.Reason
@@ -120,6 +145,11 @@ func (e *Error) Is(err error) bool {
 func (e *Error) WithError(cause error) *Error {
 	err := clone(e)
 	err.error = cause
+	se := new(Error)
+	if errors.As(cause, &se) {
+		err.surplus = se.surplus
+		err.Metadata = se.Metadata
+	}
 	return err
 }
 
@@ -143,7 +173,7 @@ func (e *Error) WithReason(reason string) *Error {
 
 func (e *Error) WithSurplus(surplus interface{}) *Error {
 	err := clone(e)
-	err.Surplus = surplus
+	err.surplus = surplus
 	return err
 }
 
@@ -168,8 +198,9 @@ func clone(err *Error) *Error {
 		metadata[k] = v
 	}
 	return &Error{
-		error: err.error,
-		stack: err.stack,
+		error:   err.error,
+		stack:   err.stack,
+		surplus: err.surplus,
 		Status: Status{
 			Code:     err.Code,
 			Reason:   err.Reason,
@@ -348,6 +379,7 @@ func processStack(pcs stack, info *stackInfo) {
 
 		file, line := fn.FileLine(pc - 1)
 		// TODO TestxxError: /slark --> " "
+		// || strings.Contains(file, "go/pkg/mod")
 		if strings.Contains(file, "<") || strings.Contains(file, "/slark") {
 			continue
 		}

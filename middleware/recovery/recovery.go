@@ -28,7 +28,7 @@ func Recovery(l logger.Logger) middleware.Middleware {
 						"error": fmt.Sprintf("%+v", err),
 					}
 					l.Log(ctx, logger.ErrorLevel, fields, "recover")
-					err = errors.InternalServer(errors.Panic, errors.Panic)
+					err = errors.New(errors.PanicCode, errors.Panic, errors.Panic)
 				}
 			}()
 			rsp, err = handler(ctx, req)

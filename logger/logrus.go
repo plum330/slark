@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/pkg"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
@@ -225,7 +224,7 @@ func WithLevel(level string) FuncOpts {
 	return func(l *logger) {
 		lv, err := logrus.ParseLevel(level)
 		if err != nil {
-			panic(errors.Errorf("logrus parse level fail, level:%s, err:%+v", level, err))
+			panic(fmt.Errorf("logrus parse level fail, level:%s, err:%+v", level, err))
 		}
 		l.level = lv
 	}
@@ -237,7 +236,7 @@ func WithLevels(levels []string) FuncOpts {
 		for _, level := range levels {
 			lv, err := logrus.ParseLevel(level)
 			if err != nil {
-				panic(errors.Errorf("logrus parse level fail, levle:%s, err:%+v", level, err))
+				panic(fmt.Errorf("logrus parse level fail, levle:%s, err:%+v", level, err))
 			}
 			lvs = append(lvs, lv)
 		}
