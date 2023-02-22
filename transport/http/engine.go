@@ -135,7 +135,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 			ctx.Next()
 			var err error
 			status := ctx.Writer.Status()
-			if status != http.StatusOK {
+			if status >= http.StatusBadRequest {
 				err = errors.New(status, errors.UnknownReason, errors.UnknownReason)
 			}
 			return ctx.Writer, err

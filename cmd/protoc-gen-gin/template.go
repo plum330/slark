@@ -35,13 +35,13 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 		newCtx := ctx.Request.Context()
 		err = ctx.ShouldBind(&in)
 		if err != nil {
-			err = errors.FormatInvalid(errors.InvalidFormat, errors.InvalidFormat)
+			err = errors.FormatInvalid(errors.InvalidFormat, err.Error())
 			goto Label
 		}
 
 		err = in.ValidateAll()
 		if err != nil {
-			err = errors.ParamInvalid(errors.InvalidParam, errors.InvalidParam)
+			err = errors.ParamInvalid(errors.InvalidParam, err.Error())
 			goto Label
 		}
 
