@@ -192,7 +192,7 @@ func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path
 			}
 		}
 	}
-	return &methodDesc{
+	md := &methodDesc{
 		Name:         m.GoName,
 		OriginalName: string(m.Desc.Name()),
 		Num:          methodSets[m.GoName],
@@ -202,6 +202,15 @@ func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path
 		Method:       method,
 		HasVars:      len(vars) > 0,
 	}
+	paths := strings.Split(md.Path, "/")
+	for index, elem := range paths {
+		l := len(elem)
+		if l > 0 && (elem[0] == '{' && elem[l-1] == '}' || elem[0] == ':') {
+			paths[index] = ":" + elem[1:l-1]
+		}
+	}
+	md.Path = strings.Join(paths, "/")
+	return md
 }
 
 func buildPathVars(path string) (res map[string]*string) {

@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"fmt"
-	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
@@ -16,13 +15,10 @@ import (
 )
 
 type EngineParam struct {
-	Mode         string
-	BaseUrl      string
-	AccessLog    bool
-	Pprof        bool
-	ExcludePaths []string
-	Routers      []func(r gin.IRouter)
-	HandlerFunc  []gin.HandlerFunc
+	Mode        string
+	BaseUrl     string
+	Routers     []func(r gin.IRouter)
+	HandlerFunc []gin.HandlerFunc
 	http.FileSystem
 	logger.Logger
 }
@@ -33,12 +29,6 @@ func Engine(param *EngineParam) ServerOption {
 		engine := server.Engine
 		engine.Use(BuildRequestId())
 		engine.Use(mw_logger.ErrLogger(param.Logger))
-		if param.AccessLog {
-			engine.Use(mw_logger.Logger(param.Logger, param.ExcludePaths...))
-		}
-		if param.Pprof {
-			pprof.Register(engine)
-		}
 		if param.FileSystem != nil {
 			engine.StaticFS(fmt.Sprintf("%s/doc", param.BaseUrl), param.FileSystem)
 		}

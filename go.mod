@@ -3,7 +3,6 @@ module github.com/go-slark/slark
 go 1.19
 
 require (
-	github.com/gin-contrib/pprof v1.4.0
 	github.com/gin-gonic/gin v1.8.2
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/glog v1.0.0
