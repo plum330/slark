@@ -162,16 +162,13 @@ func buildHTTPRule(g *protogen.GeneratedFile, m *protogen.Method, rule *annotati
 
 func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path string) *methodDesc {
 	defer func() { methodSets[m.GoName]++ }()
-
-	vars := buildPathVars(path)
-
-	for v, s := range vars {
+	params := buildPathParams(path)
+	for k, v := range params {
 		fields := m.Input.Desc.Fields()
-
-		if s != nil {
-			path = replacePath(v, *s, path)
+		if v != nil {
+			path = replacePath(k, *v, path)
 		}
-		for _, field := range strings.Split(v, ".") {
+		for _, field := range strings.Split(k, ".") {
 			if strings.TrimSpace(field) == "" {
 				continue
 			}
@@ -180,13 +177,13 @@ func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path
 			}
 			fd := fields.ByName(protoreflect.Name(field))
 			if fd == nil {
-				fmt.Fprintf(os.Stderr, "\u001B[31mERROR\u001B[m: The corresponding field '%s' declaration in message could not be found in '%s'\n", v, path)
+				fmt.Fprintf(os.Stderr, "\u001B[31mERROR\u001B[m: The corresponding field '%s' declaration in message could not be found in '%s'\n", k, path)
 				os.Exit(2)
 			}
 			if fd.IsMap() {
-				fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: The field in path:'%s' shouldn't be a map.\n", v)
+				fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: The field in path:'%s' shouldn't be a map.\n", k)
 			} else if fd.IsList() {
-				fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: The field in path:'%s' shouldn't be a list.\n", v)
+				fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: The field in path:'%s' shouldn't be a list.\n", k)
 			} else if fd.Kind() == protoreflect.MessageKind || fd.Kind() == protoreflect.GroupKind {
 				fields = fd.Message().Fields()
 			}
@@ -200,7 +197,7 @@ func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path
 		Reply:        g.QualifiedGoIdent(m.Output.GoIdent),
 		Path:         path,
 		Method:       method,
-		HasVars:      len(vars) > 0,
+		HasParam:     len(params) > 0,
 	}
 	paths := strings.Split(md.Path, "/")
 	for index, elem := range paths {
@@ -213,7 +210,7 @@ func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path
 	return md
 }
 
-func buildPathVars(path string) (res map[string]*string) {
+func buildPathParams(path string) (res map[string]*string) {
 	if strings.HasSuffix(path, "/") {
 		fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: Path %s should not end with \"/\" \n", path)
 	}

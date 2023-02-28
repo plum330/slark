@@ -32,8 +32,11 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 			err error
 		)
 
-		newCtx := ctx.Request.Context()
+		{{- if .HasParam}}
+		err = ctx.ShouldBindUri(&in)
+		{{- else}}
 		err = ctx.ShouldBind(&in)
+		{{- end}}
 		if err != nil {
 			err = errors.FormatInvalid(errors.InvalidFormat, err.Error())
 			goto Label
@@ -45,6 +48,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 			goto Label
 		}
 
+		newCtx := ctx.Request.Context()
 		for _, header := range ctx.Writer.Header() {
 			if len(header) != 2 {
 				continue
@@ -82,7 +86,7 @@ type methodDesc struct {
 	// http_rule
 	Path         string
 	Method       string
-	HasVars      bool
+	HasParam     bool
 	HasBody      bool
 	Body         string
 	ResponseBody string
