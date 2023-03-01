@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const release = "v1.2.0"
+
 var CreateCmd = &cobra.Command{
 	Use:   "create",
 	Short: "create the proto code",
@@ -35,6 +37,26 @@ var CreateCmd = &cobra.Command{
 			cmd.Stderr = os.Stderr
 			if err = cmd.Run(); err != nil {
 				return
+			}
+		} else {
+			cmd := exec.Command("protoc-gen-gin", "--version")
+			var out bytes.Buffer
+			cmd.Stdout = &out
+			cmd.Stderr = os.Stderr
+			if err = cmd.Run(); err != nil {
+				return
+			}
+
+			// TODO DEL
+			fmt.Printf("proto-gen-gin version:%s, current version:%s\n", strings.Split(out.String(), " ")[1], release)
+
+			if strings.Split(out.String(), " ")[1] != release {
+				cmd := exec.Command("slark", "install")
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				if err = cmd.Run(); err != nil {
+					return
+				}
 			}
 		}
 

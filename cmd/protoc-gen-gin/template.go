@@ -30,6 +30,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 			in {{.Request}}
 			out *{{.Reply}}
 			err error
+			newCtx context.Context
 		)
 
 		{{- if .HasParam}}
@@ -48,7 +49,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 			goto Label
 		}
 
-		newCtx := ctx.Request.Context()
+		newCtx = ctx.Request.Context()
 		for _, header := range ctx.Writer.Header() {
 			if len(header) != 2 {
 				continue

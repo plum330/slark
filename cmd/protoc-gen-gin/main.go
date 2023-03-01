@@ -8,6 +8,8 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
+const release = "v1.2.0"
+
 var (
 	showVersion = flag.Bool("version", false, "print the version and exit")
 	omitempty   = flag.Bool("omitempty", true, "omit if google.api is empty")
@@ -32,5 +34,3 @@ func main() {
 		return nil
 	})
 }
-
-// 修改protobuf插件代码后，每次都需要需要本目录执行go install .
