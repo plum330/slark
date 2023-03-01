@@ -46,11 +46,10 @@ var CreateCmd = &cobra.Command{
 			if err = cmd.Run(); err != nil {
 				return
 			}
+			version := strings.TrimSpace(strings.Split(out.String(), " ")[1])
+			fmt.Printf("history version:%s\ncurrent version:%s\n", version, release)
 
-			// TODO DEL
-			fmt.Printf("proto-gen-gin version:%s, current version:%s\n", strings.Split(out.String(), " ")[1], release)
-
-			if strings.Split(out.String(), " ")[1] != release {
+			if strings.Compare(version, release) != 0 {
 				cmd := exec.Command("slark", "install")
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
