@@ -100,6 +100,7 @@ func convert(buf *bytes.Buffer, data map[string]interface{}) {
 		i++
 	}
 	buf.WriteByte('}')
+	buf.WriteByte('\n')
 }
 
 func prefixFieldClashes(data logrus.Fields, fieldMap fieldMap, reportCaller bool) {
@@ -155,9 +156,9 @@ type Log struct {
 
 func NewLog(opts ...FuncOpts) *Log {
 	l := &logger{
-		srvName: "Default-Server",
-		level:   logrus.DebugLevel,
-		levels:  logrus.AllLevels,
+		name:   "xxx",
+		level:  logrus.DebugLevel,
+		levels: logrus.AllLevels,
 		formatter: &RawJSONFormatter{
 			JSONFormatter: &logrus.JSONFormatter{
 				TimestampFormat: "2006-01-02 15:04:05.000",
@@ -203,7 +204,7 @@ func (l *Log) Log(ctx context.Context, level uint, fields map[string]interface{}
 // logrus opt
 
 type logger struct {
-	srvName      string
+	name         string
 	level        logrus.Level
 	levels       []logrus.Level
 	formatter    logrus.Formatter
@@ -216,7 +217,7 @@ type FuncOpts func(*logger)
 
 func WithSrvName(name string) FuncOpts {
 	return func(l *logger) {
-		l.srvName = name
+		l.name = name
 	}
 }
 
@@ -292,7 +293,7 @@ func (l *logger) Fire(entry *logrus.Entry) error {
 		return nil
 	}
 	entry.Data[pkg.TraceID] = ctx.Value(pkg.TraceID)
-	entry.Data[pkg.ServerName] = l.srvName
+	entry.Data[pkg.LogName] = l.name
 
 	// 日志统一分发 es mongo kafka
 	writer, ok := l.writers[entry.Level]

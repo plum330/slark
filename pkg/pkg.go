@@ -3,7 +3,7 @@ package pkg
 import "github.com/google/uuid"
 
 const (
-	ServerName    = "server-name"
+	LogName       = "log-name"
 	TraceID       = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"
