@@ -14,12 +14,12 @@ func Is{{.CamelValue}}(err error) bool {
 		return false
 	}
 	e := errors.FromError(err)
-	return e.Reason == {{ .Name }}_{{ .Value }}.String() && e.Code == {{ .HTTPCode }} 
+	return e.Reason == {{ .Name }}_{{ .Value }}.String() && e.Code == {{ .ErrCode }} 
 }
 
 {{ if .HasComment }}{{ .Comment }}{{ end -}}
 func Error{{ .CamelValue }}(format string, args ...interface{}) *errors.Error {
-	 return errors.New({{ .HTTPCode }}, fmt.Sprintf(format, args...), {{ .Name }}_{{ .Value }}.String())
+	 return errors.New({{ .ErrCode }}, fmt.Sprintf(format, args...), {{ .Name }}_{{ .Value }}.String())
 }
 
 {{- end }}
@@ -28,7 +28,7 @@ func Error{{ .CamelValue }}(format string, args ...interface{}) *errors.Error {
 type errorInfo struct {
 	Name       string
 	Value      string
-	HTTPCode   int
+	ErrCode    int
 	CamelValue string
 	Comment    string
 	HasComment bool
