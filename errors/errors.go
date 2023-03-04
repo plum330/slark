@@ -115,6 +115,10 @@ func Wrap(err error, text string) error {
 	}
 }
 
+func Is(err, target error) bool {
+	return errors.Is(err, target)
+}
+
 func ParseErr(err error) *Error {
 	e := &Error{
 		Status: Status{

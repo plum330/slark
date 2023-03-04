@@ -19,7 +19,7 @@ func Is{{.CamelValue}}(err error) bool {
 
 {{ if .HasComment }}{{ .Comment }}{{ end -}}
 func Error{{ .CamelValue }}(format string, args ...interface{}) *errors.Error {
-	 return errors.New({{ .HTTPCode }}, {{ .Name }}_{{ .Value }}.String(), fmt.Sprintf(format, args...))
+	 return errors.New({{ .HTTPCode }}, fmt.Sprintf(format, args...), {{ .Name }}_{{ .Value }}.String())
 }
 
 {{- end }}

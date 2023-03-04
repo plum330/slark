@@ -18,6 +18,30 @@ const (
 	Panic     = "SERVER_SLEEPY"
 	PanicCode = 603
 
+	Database     = "DATABASE_ERROR"
+	DatabaseCode = 604
+
+	Network     = "NETWORK_ERROR"
+	NetworkCode = 605
+
+	Denied     = "UNAUTHORIZED"
+	DeniedCode = 606
+
+	DataNotFound     = "DATA_NOT_FOUND"
+	DataNotFoundCode = 607
+
+	InternalServer     = "INTERNAL_SERVER"
+	InternalServerCode = 608
+
+	RequestBad     = "BAD_REQUEST"
+	RequestBadCode = 609
+
+	InvalidToken     = "INVALID_TOKEN"
+	InvalidTokenCode = 610
+
+	ExpireToken     = "EXPIRE_TOKEN"
+	ExpireTokenCode = 611
+
 	SupportPackageIsVersion1 = true
 
 	ClientClosed = 499
