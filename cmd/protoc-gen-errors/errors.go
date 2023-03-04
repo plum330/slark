@@ -21,7 +21,7 @@ const (
 
 const (
 	minErrCode = 0
-	maxErrCode = math.MaxUint64
+	maxErrCode = math.MaxInt
 )
 
 var enCases = cases.Title(language.AmericanEnglish, cases.NoLower)
