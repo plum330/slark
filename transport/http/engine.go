@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/logger/engine_logger/mw_logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"net/http"
 )
@@ -67,15 +67,10 @@ func GetRequestId(ctx *gin.Context) string {
 }
 
 type ProtoJson struct {
-	Code    int
-	TraceID interface{}
-	Msg     string
-	Data    proto.Message
-}
-
-var MarshalOptions = protojson.MarshalOptions{
-	UseProtoNames:   true,
-	EmitUnpopulated: true,
+	Code    int           `json:"code"`
+	TraceID interface{}   `json:"trace_id"`
+	Msg     string        `json:"msg"`
+	Data    proto.Message `json:"data"`
 }
 
 func (p ProtoJson) Render(w http.ResponseWriter) (err error) {
@@ -83,7 +78,7 @@ func (p ProtoJson) Render(w http.ResponseWriter) (err error) {
 	if val := header["Content-Type"]; len(val) == 0 {
 		header["Content-Type"] = []string{"application/json; charset=utf-8"}
 	}
-	jsonBytes, err := MarshalOptions.Marshal(p.Data)
+	jsonBytes, err := encoding.GetCodec("json").Marshal(p.Data)
 	if err != nil {
 		return err
 	}
