@@ -49,7 +49,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 			goto Label
 		}
 
-		newCtx = context.WithValue(ctx.Request.Context(), pkg.Token, ctx.Writer.Header().Get(pkg.Token))
+		newCtx = context.WithValue(ctx.Request.Context(), pkg.Token, ctx.GetHeader(pkg.Token))
 		out, err = srv.{{.Name}}(newCtx, &in)
 
 Label:

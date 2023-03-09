@@ -1,6 +1,11 @@
 package pkg
 
-import "github.com/google/uuid"
+import (
+	"context"
+	"encoding/json"
+	"github.com/go-slark/slark/errors"
+	"github.com/google/uuid"
+)
 
 const (
 	LogName       = "log-name"
@@ -33,4 +38,12 @@ func WithRequestId(requestId string) Option {
 	return func(cfg *Config) {
 		cfg.RequestId = requestId
 	}
+}
+
+func ParseToken(ctx context.Context, v interface{}) error {
+	token, ok := ctx.Value(Token).(string)
+	if !ok {
+		return errors.TokenInvalid(errors.InvalidToken, errors.InvalidToken)
+	}
+	return json.Unmarshal([]byte(token), v)
 }
