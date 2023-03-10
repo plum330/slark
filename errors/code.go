@@ -57,6 +57,18 @@ const (
 	AccountPasswordError     = "ACCOUNT_PASSWORD_ERROR"
 	AccountPasswordErrorCode = 616
 
+	DataCreate     = "DATA_CREATE"
+	DataCreateCode = 620
+
+	DataDelete     = "DATA_DELETE"
+	DataDeleteCode = 621
+
+	DataUpdate     = "DATA_UPDATE"
+	DataUpdateCode = 622
+
+	DataList     = "DATA_LIST"
+	DataListCode = 623
+
 	SupportPackageIsVersion1 = true
 
 	ClientClosed = 499
