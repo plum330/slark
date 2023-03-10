@@ -67,10 +67,10 @@ func GetRequestId(ctx *gin.Context) string {
 }
 
 type ProtoJson struct {
-	Code    int           `json:"code"`
-	TraceID interface{}   `json:"trace_id"`
-	Msg     string        `json:"msg"`
-	Data    proto.Message `json:"data"`
+	Code          int         `json:"code"`
+	TraceID       interface{} `json:"trace_id"`
+	Msg           string      `json:"msg"`
+	proto.Message `json:"data"`
 }
 
 func (p ProtoJson) Render(w http.ResponseWriter) (err error) {
@@ -78,7 +78,7 @@ func (p ProtoJson) Render(w http.ResponseWriter) (err error) {
 	if val := header["Content-Type"]; len(val) == 0 {
 		header["Content-Type"] = []string{"application/json; charset=utf-8"}
 	}
-	jsonBytes, err := encoding.GetCodec("json").Marshal(p.Data)
+	jsonBytes, err := encoding.GetCodec("json").Marshal(p.Message)
 	if err != nil {
 		return err
 	}
@@ -100,7 +100,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		rsp := &ProtoJson{TraceID: ctx.Request.Context().Value(pkg.TraceID)}
 		rsp.Msg = "成功"
-		rsp.Data = out
+		rsp.Message = out
 		if err != nil {
 			e := errors.ParseErr(err)
 			rsp.Code = int(e.Status.Code)
