@@ -31,3 +31,23 @@ func TokenInvalid(msg, reason string) *Error {
 func TokenExpire(msg, reason string) *Error {
 	return New(ExpireTokenCode, msg, reason)
 }
+
+func LoginFail(msg, reason string) *Error {
+	return New(FailLoginCode, msg, reason)
+}
+
+func LogoutFail(msg, reason string) *Error {
+	return New(FailLogoutCode, msg, reason)
+}
+
+func NotFoundAccount(msg, reason string) *Error {
+	return New(AccountNotFoundCode, msg, reason)
+}
+
+func ExistsAccount(msg, reason string) *Error {
+	return New(AccountExistsCode, msg, reason)
+}
+
+func ErrorAccountPassword(msg, reason string) *Error {
+	return New(AccountPasswordErrorCode, msg, reason)
+}

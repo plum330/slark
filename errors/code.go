@@ -42,6 +42,21 @@ const (
 	ExpireToken     = "EXPIRE_TOKEN"
 	ExpireTokenCode = 611
 
+	FailLogin     = "LOGIN_FAIL"
+	FailLoginCode = 612
+
+	FailLogout     = "LOGOUT_FAIL"
+	FailLogoutCode = 613
+
+	AccountNotFound     = "ACCOUNT_NOT_FOUND"
+	AccountNotFoundCode = 614
+
+	AccountExists     = "ACCOUNT_EXISTS"
+	AccountExistsCode = 615
+
+	AccountPasswordError     = "ACCOUNT_PASSWORD_ERROR"
+	AccountPasswordErrorCode = 616
+
 	SupportPackageIsVersion1 = true
 
 	ClientClosed = 499
