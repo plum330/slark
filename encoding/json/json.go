@@ -14,7 +14,7 @@ const Name = "json"
 var (
 	MarshalOptions = protojson.MarshalOptions{
 		UseProtoNames:   true,
-		EmitUnpopulated: true,
+		EmitUnpopulated: false,
 	}
 	UnmarshalOptions = protojson.UnmarshalOptions{
 		DiscardUnknown: true,
