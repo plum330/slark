@@ -51,8 +51,8 @@ const (
 	AccountNotFound     = "ACCOUNT_NOT_FOUND"
 	AccountNotFoundCode = 614
 
-	AccountExists     = "ACCOUNT_EXISTS"
-	AccountExistsCode = 615
+	DataExists     = "DATA_EXISTS"
+	DataExistsCode = 615
 
 	AccountPasswordError     = "ACCOUNT_PASSWORD_ERROR"
 	AccountPasswordErrorCode = 616

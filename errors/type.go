@@ -32,36 +32,36 @@ func TokenExpire(msg, reason string) *Error {
 	return New(ExpireTokenCode, msg, reason)
 }
 
-func LoginFail(msg, reason string) *Error {
-	return New(FailLoginCode, msg, reason)
+func LoginFail(msg string) *Error {
+	return New(FailLoginCode, msg, FailLogin)
 }
 
-func LogoutFail(msg, reason string) *Error {
-	return New(FailLogoutCode, msg, reason)
+func LogoutFail(msg string) *Error {
+	return New(FailLogoutCode, msg, FailLogout)
 }
 
-func NotFoundAccount(msg string) *Error {
-	return New(AccountNotFoundCode, msg, AccountNotFound)
+func NotFoundData(msg string) *Error {
+	return New(DataNotFoundCode, msg, DataNotFound)
 }
 
-func IsNotFoundAccount(err error) bool {
+func IsNotFoundData(err error) bool {
 	if err == nil {
 		return false
 	}
 	e := FromError(err)
-	return e.Reason == AccountNotFound && e.Code == AccountNotFoundCode
+	return e.Reason == DataNotFound && e.Code == DataNotFoundCode
 }
 
-func ExistsAccount(msg string) *Error {
-	return New(AccountExistsCode, msg, AccountExists)
+func ExistsData(msg string) *Error {
+	return New(DataExistsCode, msg, DataExists)
 }
 
-func IsExistsAccount(err error) bool {
+func IsExistsData(err error) bool {
 	if err == nil {
 		return false
 	}
 	e := FromError(err)
-	return e.Reason == AccountExists && e.Code == AccountExistsCode
+	return e.Reason == DataExists && e.Code == DataExistsCode
 }
 
 func ErrorAccountPassword(msg string) *Error {
@@ -76,18 +76,18 @@ func IsAccountPasswordError(err error) bool {
 	return e.Reason == AccountPasswordError && e.Code == AccountPasswordErrorCode
 }
 
-func CreateData(msg, reason string) *Error {
-	return New(DataCreateCode, msg, reason)
+func CreateData(msg string) *Error {
+	return New(DataCreateCode, msg, DataCreate)
 }
 
-func UpdateData(msg, reason string) *Error {
-	return New(DataUpdateCode, msg, reason)
+func UpdateData(msg string) *Error {
+	return New(DataUpdateCode, msg, DataUpdate)
 }
 
-func DeleteData(msg, reason string) *Error {
-	return New(DataDeleteCode, msg, reason)
+func DeleteData(msg string) *Error {
+	return New(DataDeleteCode, msg, DataDelete)
 }
 
-func ListData(msg, reason string) *Error {
-	return New(DataListCode, msg, reason)
+func ListData(msg string) *Error {
+	return New(DataListCode, msg, DataList)
 }
