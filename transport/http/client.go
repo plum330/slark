@@ -82,7 +82,7 @@ func NewRequest() *Request {
 				return nil
 			}
 			body, err := io.ReadAll(rsp.Body)
-			return errors.New(rsp.StatusCode, errors.UnknownReason, errors.UnknownReason).WithError(err).WithSurplus(body)
+			return errors.New(rsp.StatusCode, errors.UnknownReason, errors.UnknownReason).WithError(err).WithReason(string(body))
 		},
 	}
 	return req

@@ -66,30 +66,41 @@ func GetRequestId(ctx *gin.Context) string {
 	return ctx.Writer.Header().Get(pkg.TraceID)
 }
 
-type ProtoJson struct {
-	Code          int         `json:"code"`
-	TraceID       interface{} `json:"trace_id"`
-	Msg           string      `json:"msg"`
-	proto.Message `json:"data"`
+type Header struct {
+	Code    int         `json:"code"`
+	TraceID interface{} `json:"trace_id"`
+	Msg     string      `json:"msg"`
 }
 
-func (p ProtoJson) Render(w http.ResponseWriter) (err error) {
+type Response struct {
+	*Header
+	proto.Message
+}
+
+func (r Response) Render(w http.ResponseWriter) (err error) {
 	header := w.Header()
 	if val := header["Content-Type"]; len(val) == 0 {
 		header["Content-Type"] = []string{"application/json; charset=utf-8"}
 	}
-	jsonBytes, err := encoding.GetCodec("json").Marshal(p.Message)
+	codec := encoding.GetCodec("json")
+	hb, err := codec.Marshal(r.Header)
 	if err != nil {
 		return err
 	}
-	_, err = w.Write(jsonBytes)
+	pb, err := codec.Marshal(r.Message)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	return
+	data := make([]byte, 0, len(hb)+len(pb)+8)
+	data = append(data, hb[:len(hb)-1]...)
+	data = append(data, []byte(`,"data":`)...)
+	data = append(data, pb...)
+	data = append(data, '}')
+	_, err = w.Write(data)
+	return err
 }
 
-func (p ProtoJson) WriteContentType(w http.ResponseWriter) {
+func (r Response) WriteContentType(w http.ResponseWriter) {
 	header := w.Header()
 	if val := header["Content-Type"]; len(val) == 0 {
 		header["Content-Type"] = []string{"application/json; charset=utf-8"}
@@ -98,7 +109,11 @@ func (p ProtoJson) WriteContentType(w http.ResponseWriter) {
 
 func Result(out proto.Message, err error) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		rsp := &ProtoJson{TraceID: ctx.Request.Context().Value(pkg.TraceID)}
+		rsp := &Response{
+			Header: &Header{
+				TraceID: ctx.Request.Context().Value(pkg.TraceID),
+			},
+		}
 		rsp.Msg = "成功"
 		rsp.Message = out
 		if err != nil {
@@ -108,7 +123,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 			_ = ctx.Error(e)
 			ctx.Abort()
 		}
-		ctx.JSON(http.StatusOK, rsp)
+		ctx.Render(http.StatusOK, rsp)
 	}
 }
 
@@ -131,10 +146,14 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 			if e.Message != errors.Panic {
 				_ = ctx.Error(err)
 			}
-			rsp := &ProtoJson{TraceID: reqCtx.Value(pkg.TraceID)}
+			rsp := &Response{
+				Header: &Header{
+					TraceID: reqCtx.Value(pkg.TraceID),
+				},
+			}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message
-			ctx.JSON(http.StatusOK, rsp)
+			ctx.Render(http.StatusOK, rsp)
 		}
 	}
 }
