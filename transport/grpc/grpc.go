@@ -12,9 +12,15 @@ type RegisterObj struct {
 	Register func(s *grpc.Server, obj interface{})
 }
 
-func (r *RegisterObj) NewGRPCServer(opts ...ServerOption) *Server {
+type RegisterObjSet struct {
+	Sets []RegisterObj
+}
+
+func (r *RegisterObjSet) NewGRPCServer(opts ...ServerOption) *Server {
 	srv := NewServer(opts...)
-	r.Register(srv.Server, r.Obj)
+	for _, set := range r.Sets {
+		set.Register(srv.Server, set.Obj)
+	}
 	return srv
 }
 
