@@ -74,7 +74,7 @@ type Header struct {
 
 type Response struct {
 	*Header
-	proto.Message
+	proto.Message `json:"data"`
 }
 
 func (r Response) Render(w http.ResponseWriter) (err error) {
