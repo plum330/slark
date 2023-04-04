@@ -74,21 +74,33 @@ func UnaryServerTimeout(timeout time.Duration) middleware.Middleware {
 	}
 }
 
-func UnaryServerTracID() middleware.Middleware {
+func UnaryServerTrace() middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			md, ok := metadata.FromIncomingContext(ctx)
 			if !ok {
-				md = metadata.Pairs()
+				return handler(ctx, req)
 			}
-
 			requestID := md[pkg.TraceID]
 			if len(requestID) > 0 {
 				ctx = context.WithValue(ctx, pkg.TraceID, requestID[0])
+			}
+			return handler(ctx, req)
+		}
+	}
+}
+
+func UnaryServerAuthorize() middleware.Middleware {
+	return func(handler middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, req interface{}) (interface{}, error) {
+			md, ok := metadata.FromIncomingContext(ctx)
+			if !ok {
 				return handler(ctx, req)
 			}
-
-			ctx = context.WithValue(ctx, pkg.TraceID, pkg.BuildRequestID())
+			token := md[pkg.Token]
+			if len(token) > 0 {
+				ctx = context.WithValue(ctx, pkg.Token, token[0])
+			}
 			return handler(ctx, req)
 		}
 	}
@@ -127,20 +139,25 @@ func UnaryClientTimeout(defaultTime time.Duration) grpc.UnaryClientInterceptor {
 	}
 }
 
-func UnaryClientTraceID() grpc.UnaryClientInterceptor {
+func UnaryClientTrace() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, resp interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
 		value := ctx.Value(pkg.TraceID)
 		requestID, ok := value.(string)
 		if !ok || len(requestID) == 0 {
 			requestID = pkg.BuildRequestID()
 		}
+		ctx = metadata.AppendToOutgoingContext(ctx, pkg.TraceID, requestID)
+		return invoker(ctx, method, req, resp, cc, opts...)
+	}
+}
 
-		md, ok := metadata.FromOutgoingContext(ctx)
-		if !ok {
-			md = metadata.Pairs()
+func UnaryClientAuthorize() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		token, ok := ctx.Value(pkg.Token).(string)
+		if ok {
+			ctx = metadata.AppendToOutgoingContext(ctx, pkg.Token, token)
 		}
-		md[pkg.TraceID] = []string{requestID}
-		return invoker(metadata.NewOutgoingContext(ctx, md), method, req, resp, cc, opts...)
+		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
 

@@ -123,7 +123,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 			_ = ctx.Error(e)
 			ctx.Abort()
 		}
-		ctx.Render(http.StatusOK, rsp)
+		ctx.JSON(http.StatusOK, rsp)
 	}
 }
 
@@ -153,7 +153,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 			}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message
-			ctx.Render(http.StatusOK, rsp)
+			ctx.JSON(http.StatusOK, rsp)
 		}
 	}
 }
