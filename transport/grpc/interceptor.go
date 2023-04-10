@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -155,7 +156,7 @@ func UnaryClientAuthorize() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		token, ok := ctx.Value(pkg.Token).(string)
 		if ok {
-			ctx = metadata.AppendToOutgoingContext(ctx, pkg.Token, token)
+			ctx = metadata.AppendToOutgoingContext(ctx, pkg.Token, strconv.QuoteToASCII(token))
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
