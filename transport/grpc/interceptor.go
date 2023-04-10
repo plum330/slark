@@ -100,7 +100,11 @@ func UnaryServerAuthorize() middleware.Middleware {
 			}
 			token := md[pkg.Token]
 			if len(token) > 0 {
-				ctx = context.WithValue(ctx, pkg.Token, token[0])
+				str, err := strconv.Unquote(token[0])
+				if err != nil {
+					return nil, err
+				}
+				ctx = context.WithValue(ctx, pkg.Token, str)
 			}
 			return handler(ctx, req)
 		}
