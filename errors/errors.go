@@ -119,19 +119,6 @@ func Is(err, target error) bool {
 	return errors.Is(err, target)
 }
 
-func ParseErr(err error) *Error {
-	e := &Error{
-		Status: Status{
-			Code:    UnknownCode,
-			Reason:  UnknownReason,
-			Message: UnknownReason,
-		},
-		error: err,
-	}
-	errors.As(err, &e)
-	return e
-}
-
 func (e *Error) Unwrap() error {
 	if e == nil {
 		return nil

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/go-slark/slark/cmd/protoc-gen-errors/errors"
-	"math"
 	"strings"
 	"unicode"
 
@@ -20,8 +19,8 @@ const (
 )
 
 const (
-	minErrCode = 0
-	maxErrCode = math.MaxInt
+	minErrCode = 100
+	maxErrCode = 599
 )
 
 var enCases = cases.Title(language.AmericanEnglish, cases.NoLower)
@@ -70,8 +69,8 @@ func genErrorsReason(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 	if ok := defaultCode.(int32); ok != 0 {
 		code = int(ok)
 	}
-	if code > maxErrCode || code < 0 {
-		panic(fmt.Sprintf("Enum '%s' range must be greater than 0 and less than or equal to %d", string(enum.Desc.Name()), maxErrCode))
+	if code > maxErrCode || code < minErrCode {
+		panic(fmt.Sprintf("Enum '%s' range must be greater than or equal to %d and less than or equal to %d", string(enum.Desc.Name()), minErrCode, maxErrCode))
 	}
 	var ew errorWrapper
 	for _, v := range enum.Values {
@@ -82,8 +81,8 @@ func genErrorsReason(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 		}
 		// If the current enumeration does not contain 'errors.code'
 		// or the code value exceeds the range, the current enum will be skipped
-		if enumCode > maxErrCode || enumCode < 0 {
-			panic(fmt.Sprintf("Enum '%s' range must be greater than 0 and less than or equal to %d", string(v.Desc.Name()), maxErrCode))
+		if enumCode > maxErrCode || enumCode < minErrCode {
+			panic(fmt.Sprintf("Enum '%s' range must be greater than or equal to %d and less than or equal to %d", string(v.Desc.Name()), minErrCode, maxErrCode))
 		}
 		if enumCode == 0 {
 			continue

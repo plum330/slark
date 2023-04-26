@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"github.com/go-slark/slark/errors"
 	"google.golang.org/grpc"
 	"os"
 )
@@ -42,7 +43,7 @@ func NewGRPCClient(objs []*ClientObj, f DialOption, opts ...ClientOption) *GRPCC
 	for _, obj := range objs {
 		client := NewClient(append(append(append([]ClientOption{}, WithAddr(obj.Addr)), ClientOptions(f())), opts...)...)
 		if client.err != nil {
-			os.Exit(800)
+			os.Exit(errors.ClientClosed)
 		}
 		clients[obj.Name] = client
 	}

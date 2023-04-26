@@ -117,7 +117,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 		rsp.Msg = "成功"
 		rsp.Message = out
 		if err != nil {
-			e := errors.ParseErr(err)
+			e := errors.FromError(err)
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message
 			_ = ctx.Error(e)
@@ -142,7 +142,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 		})(reqCtx, ctx.Request)
 		if err != nil {
 			ctx.Abort()
-			e := errors.ParseErr(err)
+			e := errors.FromError(err)
 			if e.Message != errors.Panic {
 				_ = ctx.Error(err)
 			}

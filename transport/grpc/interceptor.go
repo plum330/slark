@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
 	"github.com/grpc-ecosystem/go-grpc-middleware/retry"
@@ -11,7 +12,9 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -43,7 +46,7 @@ func UnaryServerTimeout(timeout time.Duration) middleware.Middleware {
 			go func() {
 				defer func() {
 					if p := recover(); p != nil {
-						ch <- p
+						ch <- fmt.Sprintf("%+v\n\n%s", p, strings.TrimSpace(string(debug.Stack())))
 					}
 				}()
 
@@ -61,8 +64,6 @@ func UnaryServerTimeout(timeout time.Duration) middleware.Middleware {
 				defer l.Unlock()
 				return resp, err
 			case <-ctx.Done():
-				l.Lock()
-				defer l.Unlock()
 				err = ctx.Err()
 				if err == context.Canceled {
 					err = status.Error(codes.Canceled, err.Error())
