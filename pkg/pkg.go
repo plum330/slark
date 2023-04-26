@@ -1,4 +1,4 @@
-package pkg
+package utils
 
 import (
 	"context"
@@ -43,7 +43,7 @@ func WithRequestId(requestId string) Option {
 func ParseToken(ctx context.Context, v interface{}) error {
 	token, ok := ctx.Value(Token).(string)
 	if !ok {
-		return errors.TokenInvalid(errors.InvalidToken, errors.InvalidToken)
+		return errors.Unauthorized(errors.TokenError, errors.TokenError)
 	}
 	return json.Unmarshal([]byte(token), v)
 }

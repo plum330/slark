@@ -25,7 +25,7 @@ type codec struct {
 func (*codec) Marshal(v interface{}) ([]byte, error) {
 	values, ok := v.(url.Values)
 	if !ok {
-		return nil, errors.ParamInvalid(errors.InvalidParam, errors.InvalidParam)
+		return nil, errors.BadRequest(errors.ParamError, errors.ParamError)
 	}
 	return []byte(values.Encode()), nil
 }

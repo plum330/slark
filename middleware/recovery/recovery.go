@@ -20,7 +20,7 @@ func Recovery(l logger.Logger) middleware.Middleware {
 					if ok && errors.HasStack(v) {
 						err = v
 					} else {
-						err = errors.New(errors.PanicCode, errors.Panic, fmt.Sprintf("%+v", e))
+						err = errors.ServerUnavailable(errors.Panic, fmt.Sprintf("%+v", e))
 					}
 					fields := map[string]interface{}{
 						"req": fmt.Sprintf("%+v", req),
@@ -28,7 +28,7 @@ func Recovery(l logger.Logger) middleware.Middleware {
 						"error": fmt.Sprintf("%+v", err),
 					}
 					l.Log(ctx, logger.ErrorLevel, fields, "recover")
-					err = errors.New(errors.PanicCode, errors.Panic, errors.Panic)
+					err = errors.ServerUnavailable(errors.Panic, errors.Panic)
 				}
 			}()
 			rsp, err = handler(ctx, req)

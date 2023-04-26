@@ -9,65 +9,10 @@ const (
 	UnknownReason = "UNKNOWN_REASON"
 	UnknownCode   = 600
 
-	InvalidParam   = "PARAM_INVALID"
-	ParamValidCode = 601
-
-	InvalidFormat     = "FORMAT_INVALID"
-	FormatInvalidCode = 602
-
-	Panic     = "SERVER_SLEEPY"
-	PanicCode = 603
-
-	Database     = "DATABASE_ERROR"
-	DatabaseCode = 604
-
-	Network     = "NETWORK_ERROR"
-	NetworkCode = 605
-
-	Denied     = "UNAUTHORIZED"
-	DeniedCode = 606
-
-	DataNotFound     = "DATA_NOT_FOUND"
-	DataNotFoundCode = 607
-
-	InternalServer     = "INTERNAL_SERVER"
-	InternalServerCode = 608
-
-	RequestBad     = "BAD_REQUEST"
-	RequestBadCode = 609
-
-	InvalidToken     = "INVALID_TOKEN"
-	InvalidTokenCode = 610
-
-	ExpireToken     = "EXPIRE_TOKEN"
-	ExpireTokenCode = 611
-
-	FailLogin     = "LOGIN_FAIL"
-	FailLoginCode = 612
-
-	FailLogout     = "LOGOUT_FAIL"
-	FailLogoutCode = 613
-
-	AccountNotFound     = "ACCOUNT_NOT_FOUND"
-	AccountNotFoundCode = 614
-
-	DataExists     = "DATA_EXISTS"
-	DataExistsCode = 615
-
-	AccountPasswordError     = "ACCOUNT_PASSWORD_ERROR"
-	AccountPasswordErrorCode = 616
-
-	DataCreate     = "DATA_CREATE"
-	DataCreateCode = 620
-
-	DataDelete     = "DATA_DELETE"
-	DataDeleteCode = 621
-
-	DataUpdate     = "DATA_UPDATE"
-	DataUpdateCode = 622
-
-	DataList     = "DATA_LIST"
-	DataListCode = 623
+	Panic       = "SERVER_UNAVAILABLE"
+	ParamError  = "PARAM_ERROR"
+	FormatError = "FORMAT_ERROR"
+	TokenError  = "TOKEN_ERROR"
 
 	SupportPackageIsVersion1 = true
 

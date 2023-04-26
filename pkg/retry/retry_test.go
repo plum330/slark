@@ -11,7 +11,7 @@ import (
 func TestBackoffRetry(t *testing.T) {
 	opt := NewOption(Debug(true))
 	err := opt.Retry(func() error {
-		return errors.NewError(600, "test", "test")
+		return errors.New(600, "test", "test")
 	})
 	fmt.Println(err)
 }
@@ -20,7 +20,7 @@ func TestBackoffRetry(t *testing.T) {
 func TestBackoffRetryWithMaxDelay(t *testing.T) {
 	opt := NewOption(Debug(true), MaxDelay(1*time.Second))
 	err := opt.Retry(func() error {
-		return errors.NewError(600, "test", "test")
+		return errors.New(600, "test", "test")
 	})
 	fmt.Println(err)
 }
@@ -29,7 +29,7 @@ func TestBackoffRetryWithMaxDelay(t *testing.T) {
 func TestFixed(t *testing.T) {
 	opt := NewOption(Debug(true), Function(Fixed))
 	err := opt.Retry(func() error {
-		return errors.NewError(600, "test", "test")
+		return errors.New(600, "test", "test")
 	})
 	fmt.Println(err)
 }
@@ -37,7 +37,7 @@ func TestFixed(t *testing.T) {
 func TestRandom(t *testing.T) {
 	opt := NewOption(Debug(true), Function(Random))
 	err := opt.Retry(func() error {
-		return errors.NewError(600, "test", "test")
+		return errors.New(600, "test", "test")
 	})
 	fmt.Println(err)
 }
@@ -46,7 +46,7 @@ func TestRandom(t *testing.T) {
 func TestGroup(t *testing.T) {
 	opt := NewOption(Debug(true), Function(Group(Fixed, BackOff)))
 	err := opt.Retry(func() error {
-		return errors.NewError(600, "test", "test")
+		return errors.New(600, "test", "test")
 	})
 	fmt.Println(err)
 }
@@ -55,7 +55,7 @@ func TestGroup(t *testing.T) {
 func TestGroupWithMaxDelay(t *testing.T) {
 	opt := NewOption(Debug(true), MaxDelay(1*time.Second), Function(Group(Fixed, BackOff)))
 	err := opt.Retry(func() error {
-		return errors.NewError(600, "test", "test")
+		return errors.New(600, "test", "test")
 	})
 	fmt.Println(err)
 }

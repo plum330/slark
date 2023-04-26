@@ -210,9 +210,9 @@ func FromError(err error) *Error {
 	}
 	gs, ok := status.FromError(err)
 	if !ok {
-		return New(UnknownCode, UnknownReason, err.Error())
+		return New(UnknownCode, err.Error(), UnknownReason)
 	}
-	ret := New(GRPCToHTTPCode(gs.Code()), UnknownReason, gs.Message())
+	ret := New(GRPCToHTTPCode(gs.Code()), gs.Message(), UnknownReason)
 	for _, detail := range gs.Details() {
 		switch d := detail.(type) {
 		case *errdetails.ErrorInfo:

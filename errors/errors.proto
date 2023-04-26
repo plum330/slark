@@ -6,7 +6,7 @@ option go_package = "github.com/go-slark/slark/errors;errors";
 
 message Status {
   int32 code = 1; // 错误码
-  string reason = 2; // 业务错误提示
+  string reason = 2; // 业务错误码(业务错误提示)
   string message = 3; // 用户可读提示
   map<string, string> metadata = 4; // 错误附加信息
 }

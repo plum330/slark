@@ -1,93 +1,54 @@
 package errors
 
+// BadRequest param / format error
 func BadRequest(msg, reason string) *Error {
-	return New(RequestBadCode, msg, reason)
+	return New(400, msg, reason)
 }
 
-func ServerError(msg, reason string) *Error {
-	return New(InternalServerCode, msg, reason)
+func IsBadRequest(err error) bool {
+	return Code(err) == 400
 }
 
+// Unauthorized token invalid / expired
 func Unauthorized(msg, reason string) *Error {
-	return New(DeniedCode, msg, reason)
+	return New(401, msg, reason)
 }
 
-func ParamInvalid(msg, reason string) *Error {
-	return New(ParamValidCode, msg, reason)
+func IsUnauthorized(err error) bool {
+	return Code(err) == 401
 }
 
-func FormatInvalid(msg, reason string) *Error {
-	return New(FormatInvalidCode, msg, reason)
+// Forbidden token has no rights to access
+func Forbidden(msg, reason string) *Error {
+	return New(403, msg, reason)
 }
 
-func DatabaseError(msg, reason string) *Error {
-	return New(DatabaseCode, msg, reason)
+func IsForbidden(err error) bool {
+	return Code(err) == 403
 }
 
-func TokenInvalid(msg, reason string) *Error {
-	return New(InvalidTokenCode, msg, reason)
+func NotFound(msg, reason string) *Error {
+	return New(404, msg, reason)
 }
 
-func TokenExpire(msg, reason string) *Error {
-	return New(ExpireTokenCode, msg, reason)
+func IsNotFound(err error) bool {
+	return Code(err) == 404
 }
 
-func LoginFail(msg string) *Error {
-	return New(FailLoginCode, msg, FailLogin)
+// InternalServer network / database error
+func InternalServer(msg, reason string) *Error {
+	return New(500, msg, reason)
 }
 
-func LogoutFail(msg string) *Error {
-	return New(FailLogoutCode, msg, FailLogout)
+func IsInternalServer(err error) bool {
+	return Code(err) == 500
 }
 
-func NotFoundData(msg string) *Error {
-	return New(DataNotFoundCode, msg, DataNotFound)
+// ServerUnavailable panic
+func ServerUnavailable(msg, reason string) *Error {
+	return New(503, msg, reason)
 }
 
-func IsNotFoundData(err error) bool {
-	if err == nil {
-		return false
-	}
-	e := FromError(err)
-	return e.Reason == DataNotFound && e.Code == DataNotFoundCode
-}
-
-func ExistsData(msg string) *Error {
-	return New(DataExistsCode, msg, DataExists)
-}
-
-func IsExistsData(err error) bool {
-	if err == nil {
-		return false
-	}
-	e := FromError(err)
-	return e.Reason == DataExists && e.Code == DataExistsCode
-}
-
-func ErrorAccountPassword(msg string) *Error {
-	return New(AccountPasswordErrorCode, msg, AccountPasswordError)
-}
-
-func IsAccountPasswordError(err error) bool {
-	if err == nil {
-		return false
-	}
-	e := FromError(err)
-	return e.Reason == AccountPasswordError && e.Code == AccountPasswordErrorCode
-}
-
-func CreateData(msg string) *Error {
-	return New(DataCreateCode, msg, DataCreate)
-}
-
-func UpdateData(msg string) *Error {
-	return New(DataUpdateCode, msg, DataUpdate)
-}
-
-func DeleteData(msg string) *Error {
-	return New(DataDeleteCode, msg, DataDelete)
-}
-
-func ListData(msg string) *Error {
-	return New(DataListCode, msg, DataList)
+func IsServerUnavailable(err error) bool {
+	return Code(err) == 503
 }
