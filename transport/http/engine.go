@@ -114,6 +114,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 				TraceID: ctx.Request.Context().Value(pkg.TraceID),
 			},
 		}
+		//rsp.Code = http.StatusOK
 		rsp.Msg = "成功"
 		rsp.Message = out
 		if err != nil {

@@ -11,19 +11,38 @@ import (
 )
 
 type App struct {
-	Server []transport.Server
+	servers []transport.Server
+	signals []os.Signal
 }
 
-func NewApp(srv ...transport.Server) *App {
-	return &App{
-		Server: srv,
+type Option func(*App)
+
+func Server(srv ...transport.Server) Option {
+	return func(app *App) {
+		app.servers = srv
 	}
+}
+
+func Signal(signals ...os.Signal) Option {
+	return func(app *App) {
+		app.signals = signals
+	}
+}
+
+func NewApp(opts ...Option) *App {
+	app := &App{
+		signals: []os.Signal{syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGSEGV},
+	}
+	for _, opt := range opts {
+		opt(app)
+	}
+	return app
 }
 
 func (a *App) Run() error {
 	c := make(chan os.Signal, 1)
 	eg, ctx := errgroup.WithContext(context.TODO())
-	for _, server := range a.Server {
+	for _, server := range a.servers {
 		s := server
 		eg.Go(func() error {
 			return s.Start()
@@ -37,7 +56,7 @@ func (a *App) Run() error {
 		})
 	}
 
-	signal.Notify(c, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT, syscall.SIGSEGV)
+	signal.Notify(c, a.signals...)
 	<-c
 	close(c)
 	return eg.Wait()

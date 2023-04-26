@@ -22,7 +22,9 @@ type ClientOption func(client *Client)
 
 func NewClient(opts ...ClientOption) *Client {
 	client := &Client{
-		Client:    &http.Client{},
+		Client: &http.Client{
+			Timeout: 3 * time.Second,
+		},
 		transport: http.DefaultTransport,
 	}
 	for _, opt := range opts {

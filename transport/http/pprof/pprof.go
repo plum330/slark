@@ -2,6 +2,7 @@ package pprof
 
 import (
 	"context"
+	"github.com/go-slark/slark/errors"
 	"net/http"
 	_ "net/http/pprof"
 )
@@ -29,5 +30,9 @@ func (s *Server) Stop(ctx context.Context) error {
 	if len(s.Addr) == 0 {
 		return nil
 	}
-	return s.Shutdown(ctx)
+	err := s.Shutdown(ctx)
+	if err != nil && errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }
