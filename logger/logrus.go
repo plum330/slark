@@ -292,8 +292,8 @@ func (l *logger) Fire(entry *logrus.Entry) error {
 	if ctx == nil {
 		return nil
 	}
-	entry.Data[pkg.TraceID] = ctx.Value(pkg.TraceID)
-	entry.Data[pkg.LogName] = l.name
+	entry.Data[utils.TraceID] = ctx.Value(utils.TraceID)
+	entry.Data[utils.LogName] = l.name
 
 	// 日志统一分发 es mongo kafka
 	writer, ok := l.writers[entry.Level]

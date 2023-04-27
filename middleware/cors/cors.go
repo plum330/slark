@@ -47,8 +47,8 @@ func CORS(opts ...Option) middleware.HTTPMiddleware {
 			AllowCredentials: true,
 			AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
 			AllowOriginFunc:  func(origin string) bool { return true },
-			AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", pkg.Authorization, "Content-Disposition"},
-			ExposedHeaders:   []string{pkg.Authorization, "Content-Disposition"},
+			AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", utils.Authorization, "Content-Disposition"},
+			ExposedHeaders:   []string{utils.Authorization, "Content-Disposition"},
 			MaxAge:           43200, // 12 Hours
 		}
 		for _, opt := range opts {
