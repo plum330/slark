@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const release = "v1.3.6"
+const release = "v1.3.7"
 
 var CreateCmd = &cobra.Command{
 	Use:   "create",
