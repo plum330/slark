@@ -40,12 +40,12 @@ func Engine(param *EngineParam) ServerOption {
 	}
 }
 
-func BuildRequestId(opts ...pkg.Option) gin.HandlerFunc {
-	cfg := &pkg.Config{
+func BuildRequestId(opts ...utils.Option) gin.HandlerFunc {
+	cfg := &utils.Config{
 		Builder: func() string {
-			return pkg.BuildRequestID()
+			return utils.BuildRequestID()
 		},
-		RequestId: pkg.TraceID,
+		RequestId: utils.TraceID,
 	}
 
 	for _, opt := range opts {
@@ -63,7 +63,7 @@ func BuildRequestId(opts ...pkg.Option) gin.HandlerFunc {
 }
 
 func GetRequestId(ctx *gin.Context) string {
-	return ctx.Writer.Header().Get(pkg.TraceID)
+	return ctx.Writer.Header().Get(utils.TraceID)
 }
 
 type Header struct {
@@ -111,7 +111,7 @@ func Result(out proto.Message, err error) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		rsp := &Response{
 			Header: &Header{
-				TraceID: ctx.Request.Context().Value(pkg.TraceID),
+				TraceID: ctx.Request.Context().Value(utils.TraceID),
 			},
 		}
 		//rsp.Code = http.StatusOK
@@ -149,7 +149,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 			}
 			rsp := &Response{
 				Header: &Header{
-					TraceID: reqCtx.Value(pkg.TraceID),
+					TraceID: reqCtx.Value(utils.TraceID),
 				},
 			}
 			rsp.Code = int(e.Status.Code)

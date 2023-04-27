@@ -173,7 +173,7 @@ func (s *Session) read() {
 		m := &Msg{
 			Type:    msgType,
 			Payload: payload,
-			ctx:     context.WithValue(context.Background(), pkg.TraceID, pkg.BuildRequestID()),
+			ctx:     context.WithValue(context.Background(), utils.TraceID, utils.BuildRequestID()),
 		}
 		select {
 		case s.in <- m:

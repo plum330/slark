@@ -51,7 +51,7 @@ func Authorize(f jwt.Keyfunc, opts ...Option) middleware.Middleware {
 			if f == nil {
 				return nil, jwtKeyFuncMiss
 			}
-			authorization, ok := ctx.Value(pkg.Authorization).(string)
+			authorization, ok := ctx.Value(utils.Authorization).(string)
 			if !ok {
 				return nil, jwtTokenMiss
 			}

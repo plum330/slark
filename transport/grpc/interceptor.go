@@ -83,9 +83,9 @@ func UnaryServerTrace() middleware.Middleware {
 			if !ok {
 				return handler(ctx, req)
 			}
-			requestID := md[pkg.TraceID]
+			requestID := md[utils.TraceID]
 			if len(requestID) > 0 {
-				ctx = context.WithValue(ctx, pkg.TraceID, requestID[0])
+				ctx = context.WithValue(ctx, utils.TraceID, requestID[0])
 			}
 			return handler(ctx, req)
 		}
@@ -99,13 +99,13 @@ func UnaryServerAuthorize() middleware.Middleware {
 			if !ok {
 				return handler(ctx, req)
 			}
-			token := md[pkg.Token]
+			token := md[utils.Token]
 			if len(token) > 0 {
 				str, err := strconv.Unquote(token[0])
 				if err != nil {
 					return nil, err
 				}
-				ctx = context.WithValue(ctx, pkg.Token, str)
+				ctx = context.WithValue(ctx, utils.Token, str)
 			}
 			return handler(ctx, req)
 		}
@@ -147,21 +147,21 @@ func UnaryClientTimeout(defaultTime time.Duration) grpc.UnaryClientInterceptor {
 
 func UnaryClientTrace() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, resp interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-		value := ctx.Value(pkg.TraceID)
+		value := ctx.Value(utils.TraceID)
 		requestID, ok := value.(string)
 		if !ok || len(requestID) == 0 {
-			requestID = pkg.BuildRequestID()
+			requestID = utils.BuildRequestID()
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, pkg.TraceID, requestID)
+		ctx = metadata.AppendToOutgoingContext(ctx, utils.TraceID, requestID)
 		return invoker(ctx, method, req, resp, cc, opts...)
 	}
 }
 
 func UnaryClientAuthorize() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		token, ok := ctx.Value(pkg.Token).(string)
+		token, ok := ctx.Value(utils.Token).(string)
 		if ok {
-			ctx = metadata.AppendToOutgoingContext(ctx, pkg.Token, strconv.QuoteToASCII(token))
+			ctx = metadata.AppendToOutgoingContext(ctx, utils.Token, strconv.QuoteToASCII(token))
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
