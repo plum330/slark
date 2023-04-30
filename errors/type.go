@@ -1,54 +1,56 @@
 package errors
 
+import "net/http"
+
 // BadRequest param / format error
 func BadRequest(msg, reason string) *Error {
-	return New(400, msg, reason)
+	return New(http.StatusBadRequest, msg, reason)
 }
 
 func IsBadRequest(err error) bool {
-	return Code(err) == 400
+	return Code(err) == http.StatusBadRequest
 }
 
 // Unauthorized token invalid / expired
 func Unauthorized(msg, reason string) *Error {
-	return New(401, msg, reason)
+	return New(http.StatusUnauthorized, msg, reason)
 }
 
 func IsUnauthorized(err error) bool {
-	return Code(err) == 401
+	return Code(err) == http.StatusUnauthorized
 }
 
 // Forbidden token has no rights to access
 func Forbidden(msg, reason string) *Error {
-	return New(403, msg, reason)
+	return New(http.StatusForbidden, msg, reason)
 }
 
 func IsForbidden(err error) bool {
-	return Code(err) == 403
+	return Code(err) == http.StatusForbidden
 }
 
 func NotFound(msg, reason string) *Error {
-	return New(404, msg, reason)
+	return New(http.StatusNotFound, msg, reason)
 }
 
 func IsNotFound(err error) bool {
-	return Code(err) == 404
+	return Code(err) == http.StatusNotFound
 }
 
 // InternalServer network / database error
 func InternalServer(msg, reason string) *Error {
-	return New(500, msg, reason)
+	return New(http.StatusInternalServerError, msg, reason)
 }
 
 func IsInternalServer(err error) bool {
-	return Code(err) == 500
+	return Code(err) == http.StatusInternalServerError
 }
 
 // ServerUnavailable panic
 func ServerUnavailable(msg, reason string) *Error {
-	return New(503, msg, reason)
+	return New(http.StatusServiceUnavailable, msg, reason)
 }
 
 func IsServerUnavailable(err error) bool {
-	return Code(err) == 503
+	return Code(err) == http.StatusServiceUnavailable
 }
