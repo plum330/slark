@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const release = "v1.4.0"
+const release = "v1.4.1"
 
 var CreateCmd = &cobra.Command{
 	Use:   "create",
@@ -28,7 +28,7 @@ var CreateCmd = &cobra.Command{
 			"protoc-gen-go", "protoc-gen-go-grpc",
 			"protoc-gen-gin", "protoc-gen-openapi",
 			"protoc-gen-validate", "protoc-go-inject-tag",
-			"protoc-gen-errors", "wire", "statik",
+			"protoc-gen-errors", "wire", "statik", "yq",
 		}
 		err := find(plugins...)
 		if err != nil {
