@@ -22,7 +22,7 @@ var InstallCmd = &cobra.Command{
 			"github.com/go-slark/slark/cmd/protoc-gen-errors@latest",
 			"github.com/google/wire/cmd/wire@latest",
 			"github.com/rakyll/statik@latest",
-			"go install github.com/mikefarah/yq/v4@latest",
+			"github.com/mikefarah/yq/v4@latest",
 		}
 		for _, plugin := range plugins {
 			fmt.Printf("go install %s\n", plugin)

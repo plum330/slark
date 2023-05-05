@@ -16,7 +16,7 @@ syntax = "proto3";
 
 package gnostic.openapi.v3;
 
-import "gnostic/openapi/v3/openapiv3.proto";
+import "google/openapi/v3/openapiv3.proto";
 import "google/protobuf/descriptor.proto";
 
 // This option lets the proto compiler generate Java code inside the package
