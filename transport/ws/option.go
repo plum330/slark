@@ -1,11 +1,18 @@
 package ws
 
 import (
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"time"
 )
 
 type ServerOption func(*Server)
+
+func Logger(l logger.Logger) ServerOption {
+	return func(s *Server) {
+		s.logger = l
+	}
+}
 
 func WithNetwork(network string) ServerOption {
 	return func(s *Server) {
