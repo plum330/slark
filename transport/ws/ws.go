@@ -3,6 +3,7 @@ package ws
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
@@ -172,7 +173,7 @@ func (s *Session) read() {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
 			s.Close()
-			fields := map[string]interface{}{"context": s.context, "error": err, "id": s.id}
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": err, "id": s.id}
 			s.logger.Log(context.Background(), logger.ErrorLevel, fields, "read message exception")
 			break
 		}
