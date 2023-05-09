@@ -3,6 +3,8 @@ package ws
 import (
 	"context"
 	"errors"
+	"fmt"
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
 	"github.com/gorilla/websocket"
@@ -22,6 +24,7 @@ type Server struct {
 	ug       *websocket.Upgrader
 	listener net.Listener
 	handler  http.Handler
+	logger   logger.Logger
 
 	network string
 	address string
@@ -136,6 +139,7 @@ type Session struct {
 	out        chan *Msg
 	closing    chan struct{}
 	isClosed   bool
+	logger     logger.Logger
 	sync.Mutex // avoid close chan duplicated
 	*ConnOption
 }
@@ -151,6 +155,7 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 		in:         make(chan *Msg, s.in),
 		out:        make(chan *Msg, s.out),
 		closing:    make(chan struct{}, 1),
+		logger:     s.logger,
 		ConnOption: s.ConnOption,
 	}
 	go sess.read()
@@ -168,6 +173,8 @@ func (s *Session) read() {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
 			s.Close()
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": err, "id": s.id}
+			s.logger.Log(context.Background(), logger.ErrorLevel, fields, "read message exception")
 			break
 		}
 		m := &Msg{
