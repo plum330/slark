@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-const release = "v1.3.7"
+const release = "v1.3.8"
 
 var CreateCmd = &cobra.Command{
 	Use:   "create",
@@ -26,7 +26,7 @@ var CreateCmd = &cobra.Command{
 
 		plugins := []string{
 			"protoc-gen-go", "protoc-gen-go-grpc",
-			"protoc-gen-gin", "protoc-gen-openapiv2",
+			"protoc-gen-http", "protoc-gen-openapiv2",
 			"protoc-gen-validate", "protoc-go-inject-tag",
 			"protoc-gen-errors", "wire", "statik",
 		}
@@ -39,7 +39,7 @@ var CreateCmd = &cobra.Command{
 				return
 			}
 		} else {
-			cmd := exec.Command("protoc-gen-gin", "--version")
+			cmd := exec.Command("protoc-gen-http", "--version")
 			var out bytes.Buffer
 			cmd.Stdout = &out
 			cmd.Stderr = os.Stderr
@@ -107,8 +107,8 @@ func create(path, dir string) error {
 		"--go_opt=paths=source_relative",
 		"--go-grpc_out=" + dir,
 		"--go-grpc_opt=paths=source_relative",
-		"--gin_out=" + dir,
-		"--gin_opt=paths=source_relative",
+		"--http_out=" + dir,
+		"--http_opt=paths=source_relative",
 		"--errors_out=" + dir,
 		"--errors_opt=paths=source_relative",
 		"--openapiv2_out=" + dir,

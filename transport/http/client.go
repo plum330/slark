@@ -5,7 +5,7 @@ import (
 	"context"
 	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/errors"
-	"github.com/go-slark/slark/transport/http/bind"
+	utils "github.com/go-slark/slark/pkg"
 	"io"
 	"net/http"
 	"time"
@@ -64,7 +64,7 @@ type Request struct {
 func NewRequest() *Request {
 	req := &Request{
 		encoder: func(ctx context.Context, typ string, v interface{}) ([]byte, error) {
-			return encoding.GetCodec(bind.ContentSubtype(typ)).Marshal(v)
+			return encoding.GetCodec(SubContentType(typ)).Marshal(v)
 		},
 
 		decoder: func(ctx context.Context, rsp *http.Response, v interface{}) error {
@@ -72,7 +72,7 @@ func NewRequest() *Request {
 			if err != nil {
 				return err
 			}
-			codec := encoding.GetCodec(bind.ContentSubtype(rsp.Header.Get("Content-Type")))
+			codec := encoding.GetCodec(SubContentType(rsp.Header.Get(utils.ContentType)))
 			if codec == nil {
 				codec = encoding.GetCodec("json")
 			}
