@@ -13,8 +13,13 @@ const (
 	Authorization = "x-authorization"
 	Token         = "x-token"
 
-	Target = "x-target"
-	Method = "x-method"
+	Target      = "x-target"
+	Method      = "x-method"
+	RequestVars = "request-vars"
+
+	ContentType = "Content-Type"
+	Accept      = "Accept"
+	Application = "application"
 )
 
 func BuildRequestID() string {
@@ -40,10 +45,13 @@ func WithRequestId(requestId string) Option {
 	}
 }
 
-func ParseToken(ctx context.Context, v interface{}) error {
+func MustParseToken(ctx context.Context, v interface{}) {
 	token, ok := ctx.Value(Token).(string)
 	if !ok {
-		return errors.Unauthorized(errors.TokenError, errors.TokenError)
+		panic(errors.TokenError)
 	}
-	return json.Unmarshal([]byte(token), v)
+	err := json.Unmarshal([]byte(token), v)
+	if err != nil {
+		panic(err)
+	}
 }

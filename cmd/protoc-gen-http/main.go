@@ -18,7 +18,7 @@ var (
 func main() {
 	flag.Parse()
 	if *showVersion {
-		fmt.Printf("protoc-gen-gin %v\n", release)
+		fmt.Printf("protoc-gen-http %v\n", release)
 		return
 	}
 	protogen.Options{

@@ -199,7 +199,7 @@ func buildMethodDesc(g *protogen.GeneratedFile, m *protogen.Method, method, path
 		Reply:        g.QualifiedGoIdent(m.Output.GoIdent),
 		Path:         path,
 		Method:       method,
-		HasParam:     len(params) > 0,
+		HasVars:      len(params) > 0,
 	}
 	paths := strings.Split(md.Path, "/")
 	for index, elem := range paths {

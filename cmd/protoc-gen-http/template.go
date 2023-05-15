@@ -15,45 +15,59 @@ type {{.ServiceType}}HTTPServer interface {
 {{- end}}
 }
 
-func Register{{.ServiceType}}HTTPServer(srv {{.ServiceType}}HTTPServer) func(gin.IRouter) {
-	return func(group gin.IRouter){
+func Register{{.ServiceType}}HTTPServer(srv {{.ServiceType}}HTTPServer) {
+	r := http.NewRouter()
 	{{- range .Methods}}
-	group.{{.Method}}("{{.Path}}", _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv))
+	r.Handle("{{.Method}}", "{{.Path}}", _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv))
 	{{- end}}
-	}
 }
 
 {{range .Methods}}
-func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) http.HandlerFunc {
+	return func(ctx *http.Context) error {
 		var (
 			in {{.Request}}
 			out *{{.Reply}}
 			err error
 			newCtx context.Context
 		)
-
-		{{- if .HasParam}}
-		err = ctx.ShouldBindUri(&in)
-		{{- else}}
-		err = ctx.ShouldBind(&in)
-		{{- end}}
+		
+		{{- if .HasBody}}
+		err = ctx.BindBody(&in{{.Body}})
 		if err != nil {
-			err = errors.BadRequest(errors.FormatError, err.Error())
-			goto Label
+			return err
 		}
+
+		{{- if .not (eq .Body "")}}
+		err = ctx.BindQuery(&in)
+		if err != nil {
+			return err
+		}
+		{{- end}}
+		
+		{{- else}}
+		err = ctx.BindQuery(&in)
+		if err != nil {
+			return err
+		}
+
+		err = ctx.BindVars(&in)
+		if err != nil {
+			return err
+		}
+		{{- end}}
 
 		err = in.ValidateAll()
 		if err != nil {
-			err = errors.BadRequest(errors.ParamError, err.Error())
-			goto Label
+			return err
 		}
 
 		newCtx = context.WithValue(ctx.Request.Context(), utils.Token, ctx.GetHeader(utils.Token))
 		out, err = srv.{{.Name}}(newCtx, &in)
-
-Label:
-	http.Result(out, err)(ctx)
+		if err != nil {
+			return err
+		}
+		return ctx.Result(0, out.(*{{.Reply}}){{.ResponseBody}})
 	}
 }
 {{end}}
@@ -78,7 +92,7 @@ type methodDesc struct {
 	// http_rule
 	Path         string
 	Method       string
-	HasParam     bool
+	HasVars      bool
 	HasBody      bool
 	Body         string
 	ResponseBody string

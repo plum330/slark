@@ -17,6 +17,7 @@ type Server struct {
 	network  string
 	address  string
 	Engine   *gin.Engine
+	Codecs   *Codecs
 }
 
 type ServerOption func(server *Server)
@@ -52,6 +53,13 @@ func NewServer(opts ...ServerOption) *Server {
 		address: "0.0.0.0:0",
 		Server:  &http.Server{},
 		Engine:  engine,
+		Codecs: &Codecs{
+			bodyDecoder:  RequestBodyDecoder,
+			varsDecoder:  RequestVarsDecoder,
+			queryDecoder: RequestQueryDecoder,
+			rspEncoder:   ResponseEncoder,
+			errorEncoder: ErrorEncoder,
+		},
 	}
 	srv.Handler = srv.Engine
 	for _, o := range opts {
@@ -84,4 +92,8 @@ func (s *Server) Start() error {
 
 func (s *Server) Stop(ctx context.Context) error {
 	return s.Shutdown(ctx)
+}
+
+func (s *Server) Route() *Router {
+	return NewRouter(s)
 }
