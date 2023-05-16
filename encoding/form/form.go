@@ -4,6 +4,7 @@ import (
 	"github.com/go-playground/form/v4"
 	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/errors"
+	"google.golang.org/protobuf/proto"
 	"net/url"
 	"reflect"
 )
@@ -42,6 +43,13 @@ func (c *codec) Unmarshal(data []byte, v interface{}) error {
 			rv.Set(reflect.New(rv.Type().Elem()))
 		}
 		rv = rv.Elem()
+	}
+
+	if m, ok := v.(proto.Message); ok {
+		return DecodeValues(m, values)
+	}
+	if m, ok := rv.Interface().(proto.Message); ok {
+		return DecodeValues(m, values)
 	}
 
 	return c.decoder.Decode(v, values)

@@ -5,25 +5,21 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/errors"
-	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/logger/engine_logger/mw_logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
 	"net/http"
 )
 
-type EngineParam struct {
+type EngineConfig struct {
 	Mode    string
 	BaseUrl string
 	http.FileSystem
-	logger.Logger
 }
 
-func Engine(param *EngineParam) ServerOption {
+func Engine(param *EngineConfig) ServerOption {
 	return func(server *Server) {
 		gin.SetMode(param.Mode)
 		engine := server.Engine
-		engine.Use(mw_logger.ErrLogger(param.Logger))
 		if param.FileSystem != nil {
 			engine.StaticFS(fmt.Sprintf("%s/doc", param.BaseUrl), param.FileSystem)
 		}
