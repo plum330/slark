@@ -292,7 +292,7 @@ func (l *logger) Fire(entry *logrus.Entry) error {
 	if ctx == nil {
 		return nil
 	}
-	entry.Data[utils.TraceID] = ctx.Value(utils.TraceID)
+	entry.Data[utils.RayID] = ctx.Value(utils.RayID)
 	entry.Data[utils.LogName] = l.name
 
 	// 日志统一分发 es mongo kafka

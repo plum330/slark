@@ -29,45 +29,32 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) ht
 			in {{.Request}}
 			out *{{.Reply}}
 			err error
-			newCtx context.Context
 		)
 		
 		{{- if .HasBody}}
-		err = ctx.BindBody(&in{{.Body}})
+		err = ctx.ShouldBind(&in)
 		if err != nil {
 			return err
 		}
 
-		{{- if .not (eq .Body "")}}
-		err = ctx.BindQuery(&in)
+		{{- else if .HasQuery}}
+		err = ctx.ShouldBindQuery(&in)
 		if err != nil {
 			return err
 		}
-		{{- end}}
-		
+
 		{{- else}}
-		err = ctx.BindQuery(&in)
+		err = ctx.ShouldBindURI(&in)
 		if err != nil {
-			return err
-		}
-
-		err = ctx.BindVars(&in)
-		if err != nil {
-			return err
+			return err	
 		}
 		{{- end}}
 
-		err = in.ValidateAll()
+		out, err = srv.{{.Name}}(ctx.Context(), &in)
 		if err != nil {
 			return err
 		}
-
-		newCtx = context.WithValue(ctx.Request.Context(), utils.Token, ctx.GetHeader(utils.Token))
-		out, err = srv.{{.Name}}(newCtx, &in)
-		if err != nil {
-			return err
-		}
-		return ctx.Result(0, out.(*{{.Reply}}){{.ResponseBody}})
+		return ctx.Result(out)
 	}
 }
 {{end}}
@@ -75,9 +62,9 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) ht
 
 type serviceDesc struct {
 	PackageName string
-	ServiceType string // Greeter
-	ServiceName string // helloworld.Greeter
-	Metadata    string // api/helloworld/helloworld.proto
+	ServiceType string
+	ServiceName string
+	Metadata    string
 	Methods     []*methodDesc
 	MethodSets  map[string]*methodDesc
 }
@@ -94,7 +81,7 @@ type methodDesc struct {
 	Method       string
 	HasVars      bool
 	HasBody      bool
-	Body         string
+	HasQuery     bool
 	ResponseBody string
 }
 

@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/recovery"
 	"net"
 	"net/http"
 )
@@ -17,6 +19,7 @@ type Server struct {
 	network  string
 	address  string
 	Engine   *gin.Engine
+	logger   logger.Logger
 	Codecs   *Codecs
 }
 
@@ -46,6 +49,12 @@ func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
 	}
 }
 
+func Logger(l logger.Logger) ServerOption {
+	return func(server *Server) {
+		server.logger = l
+	}
+}
+
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
@@ -65,6 +74,7 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
+	srv.handlers = append(srv.handlers, BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
 	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
@@ -92,8 +102,4 @@ func (s *Server) Start() error {
 
 func (s *Server) Stop(ctx context.Context) error {
 	return s.Shutdown(ctx)
-}
-
-func (s *Server) Route() *Router {
-	return NewRouter(s)
 }

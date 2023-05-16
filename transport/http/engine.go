@@ -4,21 +4,17 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/logger/engine_logger/mw_logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
-	"google.golang.org/protobuf/proto"
 	"net/http"
 )
 
 type EngineParam struct {
-	Mode        string
-	BaseUrl     string
-	Routers     []func(r gin.IRouter)
-	HandlerFunc []gin.HandlerFunc
+	Mode    string
+	BaseUrl string
 	http.FileSystem
 	logger.Logger
 }
@@ -27,104 +23,35 @@ func Engine(param *EngineParam) ServerOption {
 	return func(server *Server) {
 		gin.SetMode(param.Mode)
 		engine := server.Engine
-		engine.Use(BuildRequestId())
 		engine.Use(mw_logger.ErrLogger(param.Logger))
 		if param.FileSystem != nil {
 			engine.StaticFS(fmt.Sprintf("%s/doc", param.BaseUrl), param.FileSystem)
 		}
-		engine.Use(param.HandlerFunc...)
-		g := engine.Group(param.BaseUrl)
-		for _, router := range param.Routers {
-			router(g)
-		}
+		engine.Group(param.BaseUrl)
 	}
 }
 
-func BuildRequestId(opts ...utils.Option) gin.HandlerFunc {
+func BuildRequestID(opts ...utils.Option) middleware.HTTPMiddleware {
 	cfg := &utils.Config{
 		Builder: func() string {
 			return utils.BuildRequestID()
 		},
-		RequestId: utils.TraceID,
+		RequestID: utils.RayID,
 	}
 
 	for _, opt := range opts {
 		opt(cfg)
 	}
 
-	return func(ctx *gin.Context) {
-		rid := ctx.GetHeader(cfg.RequestId)
-		if len(rid) == 0 {
-			rid = cfg.Builder()
-		}
-		ctx.Header(cfg.RequestId, rid)
-		ctx.Request = ctx.Request.WithContext(context.WithValue(context.Background(), cfg.RequestId, rid))
-	}
-}
-
-func GetRequestId(ctx *gin.Context) string {
-	return ctx.Writer.Header().Get(utils.TraceID)
-}
-
-type Header struct {
-	Code    int         `json:"code"`
-	TraceID interface{} `json:"trace_id"`
-	Msg     string      `json:"msg"`
-}
-
-type Response struct {
-	*Header
-	proto.Message `json:"data"`
-}
-
-func (r Response) Render(w http.ResponseWriter) (err error) {
-	header := w.Header()
-	if val := header["Content-Type"]; len(val) == 0 {
-		header["Content-Type"] = []string{"application/json; charset=utf-8"}
-	}
-	codec := encoding.GetCodec("json")
-	hb, err := codec.Marshal(r.Header)
-	if err != nil {
-		return err
-	}
-	pb, err := codec.Marshal(r.Message)
-	if err != nil {
-		return err
-	}
-	data := make([]byte, 0, len(hb)+len(pb)+8)
-	data = append(data, hb[:len(hb)-1]...)
-	data = append(data, []byte(`,"data":`)...)
-	data = append(data, pb...)
-	data = append(data, '}')
-	_, err = w.Write(data)
-	return err
-}
-
-func (r Response) WriteContentType(w http.ResponseWriter) {
-	header := w.Header()
-	if val := header["Content-Type"]; len(val) == 0 {
-		header["Content-Type"] = []string{"application/json; charset=utf-8"}
-	}
-}
-
-func Result(out proto.Message, err error) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		rsp := &Response{
-			Header: &Header{
-				TraceID: ctx.Request.Context().Value(utils.TraceID),
-			},
-		}
-		//rsp.Code = http.StatusOK
-		rsp.Msg = "成功"
-		rsp.Message = out
-		if err != nil {
-			e := errors.FromError(err)
-			rsp.Code = int(e.Status.Code)
-			rsp.Msg = e.Status.Message
-			_ = ctx.Error(e)
-			ctx.Abort()
-		}
-		ctx.JSON(http.StatusOK, rsp)
+	return func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rid := r.Header.Get(cfg.RequestID)
+			if len(rid) == 0 {
+				rid = cfg.Builder()
+			}
+			w.Header().Set(cfg.RequestID, rid)
+			r = r.WithContext(context.WithValue(context.Background(), cfg.RequestID, rid))
+		})
 	}
 }
 
@@ -149,7 +76,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 			}
 			rsp := &Response{
 				Header: &Header{
-					TraceID: reqCtx.Value(utils.TraceID),
+					RayID: reqCtx.Value(utils.RayID),
 				},
 			}
 			rsp.Code = int(e.Status.Code)

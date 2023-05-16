@@ -6,13 +6,15 @@ import (
 )
 
 type Router struct {
-	pool sync.Pool
-	srv  *Server
+	prefix string
+	pool   sync.Pool
+	srv    *Server
 }
 
 func NewRouter(srv *Server) *Router {
 	router := &Router{
-		srv: srv,
+		srv:    srv,
+		prefix: srv.Engine.BasePath(),
 	}
 	router.pool.New = func() any {
 		return &Context{router: router}
@@ -32,5 +34,5 @@ func (r *Router) Handle(method, path string, hf HandlerFunc) {
 		c.Set(nil, nil)
 		r.pool.Put(ctx)
 	}
-	r.srv.Engine.Handle(method, path, handler)
+	r.srv.Engine.Handle(method, r.prefix+path, handler)
 }

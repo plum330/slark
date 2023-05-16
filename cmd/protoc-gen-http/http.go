@@ -13,11 +13,8 @@ import (
 )
 
 const (
-	ctxPackage  = protogen.GoImportPath("context")
-	ginPackage  = protogen.GoImportPath("github.com/gin-gonic/gin")
-	errPackage  = protogen.GoImportPath("github.com/go-slark/slark/errors")
-	Package     = protogen.GoImportPath("github.com/go-slark/slark/pkg")
-	httpPackage = protogen.GoImportPath("github.com/go-slark/slark/transport/http")
+	ctx  = protogen.GoImportPath("context")
+	http = protogen.GoImportPath("github.com/go-slark/slark/transport/http")
 )
 
 var methodSets = make(map[string]int)
@@ -44,11 +41,8 @@ func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.
 		return
 	}
 	g.P("import (")
-	g.P(ctxPackage)
-	g.P(ginPackage)
-	g.P(errPackage)
-	g.P(httpPackage)
-	g.P(Package)
+	g.P(ctx)
+	g.P(http)
 	g.P(")")
 	g.P("// This is a compile-time assertion to ensure that this generated file")
 	g.P()
@@ -141,18 +135,16 @@ func buildHTTPRule(g *protogen.GeneratedFile, m *protogen.Method, rule *annotati
 			_, _ = fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: %s %s body should not be declared.\n", method, path)
 		}
 	} else {
-		if body == "" {
+		if body != "*" {
 			_, _ = fmt.Fprintf(os.Stderr, "\u001B[31mWARN\u001B[m: %s %s does not declare a body.\n", method, path)
 		}
 	}
 	if body == "*" {
 		md.HasBody = true
-		md.Body = ""
-	} else if body != "" {
-		md.HasBody = true
-		md.Body = "." + camelCaseVars(body)
 	} else {
-		md.HasBody = false
+		if !md.HasVars {
+			md.HasQuery = true
+		}
 	}
 	if responseBody == "*" {
 		md.ResponseBody = ""

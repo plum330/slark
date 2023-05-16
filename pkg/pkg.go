@@ -9,7 +9,7 @@ import (
 
 const (
 	LogName       = "log-name"
-	TraceID       = "x-request-id"
+	RayID         = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"
 
@@ -28,7 +28,7 @@ func BuildRequestID() string {
 
 type Config struct {
 	Builder   func() string
-	RequestId string
+	RequestID string
 }
 
 type Option func(*Config)
@@ -39,9 +39,9 @@ func WithBuilder(b func() string) Option {
 	}
 }
 
-func WithRequestId(requestId string) Option {
+func WithRequestId(requestID string) Option {
 	return func(cfg *Config) {
-		cfg.RequestId = requestId
+		cfg.RequestID = requestID
 	}
 }
 

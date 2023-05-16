@@ -83,9 +83,9 @@ func UnaryServerTrace() middleware.Middleware {
 			if !ok {
 				return handler(ctx, req)
 			}
-			requestID := md[utils.TraceID]
+			requestID := md[utils.RayID]
 			if len(requestID) > 0 {
-				ctx = context.WithValue(ctx, utils.TraceID, requestID[0])
+				ctx = context.WithValue(ctx, utils.RayID, requestID[0])
 			}
 			return handler(ctx, req)
 		}
@@ -147,12 +147,12 @@ func UnaryClientTimeout(defaultTime time.Duration) grpc.UnaryClientInterceptor {
 
 func UnaryClientTrace() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, resp interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-		value := ctx.Value(utils.TraceID)
+		value := ctx.Value(utils.RayID)
 		requestID, ok := value.(string)
 		if !ok || len(requestID) == 0 {
 			requestID = utils.BuildRequestID()
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, utils.TraceID, requestID)
+		ctx = metadata.AppendToOutgoingContext(ctx, utils.RayID, requestID)
 		return invoker(ctx, method, req, resp, cc, opts...)
 	}
 }
