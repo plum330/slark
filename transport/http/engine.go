@@ -9,7 +9,6 @@ import (
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
 	"net/http"
-	"time"
 )
 
 type EngineConfig struct {
@@ -83,41 +82,26 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 
 func Log(l logger.Logger) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		start := time.Now()
-		fields := map[string]interface{}{
-			"request": fmt.Sprintf("%+v", ctx.Request),
-			"start":   start.Format(time.RFC3339),
-		}
-		l.Log(ctx, logger.InfoLevel, fields, "request log")
 		ctx.Next()
 		for _, err := range ctx.Errors {
 			ce, ok := err.Err.(*errors.Error)
 			if !ok {
-				fields = map[string]interface{}{
-					"meta":    err.Meta,
-					"type":    err.Type,
-					"error":   fmt.Sprintf("%+v", err.Err),
-					"latency": time.Since(start).Seconds(),
+				fields := map[string]interface{}{
+					"meta":  err.Meta,
+					"type":  err.Type,
+					"error": fmt.Sprintf("%+v", err.Err),
 				}
 				l.Log(ctx.Request.Context(), logger.ErrorLevel, fields, "unknown error")
 			} else {
-				fields = map[string]interface{}{
+				fields := map[string]interface{}{
 					"meta":    ce.Metadata,
 					"reason":  ce.Reason,
 					"code":    ce.Code,
 					"surplus": ce.Surplus,
 					"error":   fmt.Sprintf("%+v", err.Err),
-					"latency": time.Since(start).Seconds(),
 				}
 				l.Log(ctx.Request.Context(), logger.ErrorLevel, fields, ce.Message)
 			}
-		}
-		if len(ctx.Errors) == 0 {
-			fields = map[string]interface{}{
-				"latency":  time.Since(start).Seconds(),
-				"response": ctx.Request.Response,
-			}
-			l.Log(ctx.Request.Context(), logger.InfoLevel, fields, "response log")
 		}
 	}
 }

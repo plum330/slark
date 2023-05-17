@@ -78,11 +78,11 @@ func NewServer(opts ...ServerOption) *Server {
 			errorEncoder: ErrorEncoder,
 		},
 	}
-	srv.Engine.Use(BuildRequestID(), Log(srv.logger))
 	srv.Handler = srv.Engine
 	for _, o := range opts {
 		o(srv)
 	}
+	srv.Engine.Use(BuildRequestID(), Log(srv.logger))
 	srv.handlers = append(srv.handlers, middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
 	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
