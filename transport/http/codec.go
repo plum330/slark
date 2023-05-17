@@ -70,9 +70,9 @@ func RequestBodyDecoder(req *http.Request, v interface{}) error {
 	return nil
 }
 
-func bind(vars url.Values, v interface{}) error {
+func decode(vars url.Values, v interface{}) error {
 	if err := encoding.GetCodec(form.Name).Unmarshal([]byte(vars.Encode()), v); err != nil {
-		return errors.BadRequest("bind query", err.Error())
+		return errors.BadRequest("decode request", err.Error())
 	}
 	return nil
 }
@@ -86,11 +86,11 @@ func RequestVarsDecoder(req *http.Request, v interface{}) error {
 	for key, value := range params {
 		vars[key] = []string{value}
 	}
-	return bind(vars, v)
+	return decode(vars, v)
 }
 
 func RequestQueryDecoder(req *http.Request, v interface{}) error {
-	return bind(req.URL.Query(), v)
+	return decode(req.URL.Query(), v)
 }
 
 func SetContentType(subtype string) string {
@@ -122,7 +122,7 @@ func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) 
 	if err != nil {
 		return err
 	}
-	pb, err := codec.Marshal(r.Msg)
+	pb, err := codec.Marshal(r.Data)
 	if err != nil {
 		return err
 	}
