@@ -51,7 +51,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) ht
 		{{- end}}
 
 		out, err = ctx.Handle(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return srv.{{.Name}}(ctx, req)
+			return srv.{{.Name}}(ctx, req.(*{{.Request}}))
 		})(ctx.Context(), &in)
 		if err != nil {
 			return err
