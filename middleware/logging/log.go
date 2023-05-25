@@ -21,7 +21,7 @@ func Log(l logger.Logger) middleware.Middleware {
 				"start":   start.Format(time.RFC3339),
 				"fn":      fn,
 			}
-			l.Log(ctx, logger.InfoLevel, fields, "request log")
+			l.Log(ctx, logger.DebugLevel, fields, "request log")
 			rsp, err := handler(ctx, req)
 			fields = map[string]interface{}{
 				"latency": time.Since(start).Seconds(),
@@ -37,7 +37,7 @@ func Log(l logger.Logger) middleware.Middleware {
 				msg = "error log"
 			} else {
 				fields["response"] = fmt.Sprintf("%+v", rsp)
-				level = logger.InfoLevel
+				level = logger.DebugLevel
 				msg = "response log"
 			}
 			l.Log(ctx, level, fields, msg)

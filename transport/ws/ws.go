@@ -49,6 +49,7 @@ func NewServer(opts ...ServerOption) *Server {
 		},
 		network: "tcp",
 		address: "0.0.0.0:0",
+		logger:  logger.GetLogger(),
 	}
 
 	for _, opt := range opts {

@@ -150,13 +150,13 @@ func (f fieldMap) resolve(key string) string {
 	return key
 }
 
-type Log struct {
+type log struct {
 	*logrus.Logger
 }
 
-func NewLog(opts ...FuncOpts) *Log {
-	l := &logger{
-		name:   "xxx",
+func NewLog(opts ...FuncOpts) Logger {
+	l := &logEntity{
+		name:   utils.LogName,
 		level:  logrus.DebugLevel,
 		levels: logrus.AllLevels,
 		formatter: &RawJSONFormatter{
@@ -175,10 +175,10 @@ func NewLog(opts ...FuncOpts) *Log {
 	stdLogger.SetOutput(l.writer)
 	stdLogger.SetReportCaller(l.reportCaller)
 	stdLogger.AddHook(l)
-	return &Log{Logger: stdLogger}
+	return &log{Logger: stdLogger}
 }
 
-func (l *Log) Log(ctx context.Context, level uint, fields map[string]interface{}, v ...interface{}) {
+func (l *log) Log(ctx context.Context, level uint, fields map[string]interface{}, v ...interface{}) {
 	var logrusLevel logrus.Level
 	switch level {
 	case DebugLevel:
@@ -203,7 +203,7 @@ func (l *Log) Log(ctx context.Context, level uint, fields map[string]interface{}
 
 // logrus opt
 
-type logger struct {
+type logEntity struct {
 	name         string
 	level        logrus.Level
 	levels       []logrus.Level
@@ -213,16 +213,16 @@ type logger struct {
 	reportCaller bool
 }
 
-type FuncOpts func(*logger)
+type FuncOpts func(*logEntity)
 
 func WithSrvName(name string) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		l.name = name
 	}
 }
 
 func WithLevel(level string) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		lv, err := logrus.ParseLevel(level)
 		if err != nil {
 			panic(fmt.Errorf("logrus parse level fail, level:%s, err:%+v", level, err))
@@ -232,7 +232,7 @@ func WithLevel(level string) FuncOpts {
 }
 
 func WithLevels(levels []string) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		lvs := make([]logrus.Level, 0, len(levels))
 		for _, level := range levels {
 			lv, err := logrus.ParseLevel(level)
@@ -246,19 +246,19 @@ func WithLevels(levels []string) FuncOpts {
 }
 
 func WithFormatter(formatter logrus.Formatter) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		l.formatter = formatter
 	}
 }
 
 func WithWriter(writer io.Writer) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		l.writer = writer
 	}
 }
 
 func WithDispatcher(dispatcher map[string]io.Writer) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		l.levels = make([]logrus.Level, 0, len(dispatcher))
 		l.writers = make(map[logrus.Level]io.Writer, len(dispatcher))
 		maxLevel := logrus.Level(len(logrus.AllLevels))
@@ -278,16 +278,16 @@ func WithDispatcher(dispatcher map[string]io.Writer) FuncOpts {
 }
 
 func WithReportCaller(caller bool) FuncOpts {
-	return func(l *logger) {
+	return func(l *logEntity) {
 		l.reportCaller = caller
 	}
 }
 
-func (l *logger) Levels() []logrus.Level {
+func (l *logEntity) Levels() []logrus.Level {
 	return l.levels
 }
 
-func (l *logger) Fire(entry *logrus.Entry) error {
+func (l *logEntity) Fire(entry *logrus.Entry) error {
 	ctx := entry.Context
 	if ctx == nil {
 		return nil

@@ -77,6 +77,7 @@ func NewServer(opts ...ServerOption) *Server {
 		network:  "tcp",
 		address:  "0.0.0.0:0",
 		basePath: "/",
+		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
 		Engine:   engine,
 		Codecs: &Codecs{
