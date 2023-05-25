@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	utils "github.com/go-slark/slark/pkg"
 	"time"
 )
 
@@ -14,14 +15,17 @@ func Log(l logger.Logger) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			start := time.Now()
+			fn := ctx.Value(utils.Method)
 			fields := map[string]interface{}{
 				"request": fmt.Sprintf("%+v", req),
 				"start":   start.Format(time.RFC3339),
+				"fn":      fn,
 			}
 			l.Log(ctx, logger.InfoLevel, fields, "request log")
 			rsp, err := handler(ctx, req)
 			fields = map[string]interface{}{
 				"latency": time.Since(start).Seconds(),
+				"fn":      fn,
 			}
 			var (
 				level uint

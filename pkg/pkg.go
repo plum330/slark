@@ -8,14 +8,15 @@ import (
 )
 
 const (
-	LogName       = "log-name"
+	LogName       = "x-log-name"
 	RayID         = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"
+	Claims        = "x-jwt"
 
 	Target      = "x-target"
 	Method      = "x-method"
-	RequestVars = "request-vars"
+	RequestVars = "x-request-vars"
 
 	ContentType = "Content-Type"
 	Accept      = "Accept"

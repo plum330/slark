@@ -18,7 +18,7 @@ func Validate() middleware.Middleware {
 			if ok {
 				err := v.ValidateAll()
 				if err != nil {
-					return nil, errors.BadRequest("param invalid", err.Error()).WithError(err)
+					return nil, errors.BadRequest(errors.ParamError, err.Error()).WithError(err)
 				}
 			}
 			return handler(ctx, req)
