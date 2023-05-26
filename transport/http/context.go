@@ -21,7 +21,7 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	if c.req == nil {
 		c.ctx = context.Background()
 	} else {
-		c.ctx = context.WithValue(c.ctx, utils.Token, c.req.Header.Get(utils.Token))
+		c.ctx = context.WithValue(c.req.Context(), utils.Token, c.req.Header.Get(utils.Token))
 	}
 }
 

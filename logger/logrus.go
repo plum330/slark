@@ -155,8 +155,8 @@ type log struct {
 }
 
 func NewLog(opts ...FuncOpts) Logger {
-	l := &logEntity{
-		name:   utils.LogName,
+	le := &logEntity{
+		name:   "default",
 		level:  logrus.DebugLevel,
 		levels: logrus.AllLevels,
 		formatter: &RawJSONFormatter{
@@ -167,15 +167,15 @@ func NewLog(opts ...FuncOpts) Logger {
 		writer: os.Stdout,
 	}
 	for _, opt := range opts {
-		opt(l)
+		opt(le)
 	}
-	stdLogger := logrus.StandardLogger()
-	stdLogger.SetFormatter(l.formatter)
-	stdLogger.SetLevel(l.level)
-	stdLogger.SetOutput(l.writer)
-	stdLogger.SetReportCaller(l.reportCaller)
-	stdLogger.AddHook(l)
-	return &log{Logger: stdLogger}
+	l := logrus.StandardLogger()
+	l.SetFormatter(le.formatter)
+	l.SetLevel(le.level)
+	l.SetOutput(le.writer)
+	l.SetReportCaller(le.reportCaller)
+	l.AddHook(le)
+	return &log{Logger: l}
 }
 
 func (l *log) Log(ctx context.Context, level uint, fields map[string]interface{}, v ...interface{}) {

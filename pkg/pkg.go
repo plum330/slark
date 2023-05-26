@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	LogName       = "x-log"
+	LogName       = "log-dumper"
 	RayID         = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"

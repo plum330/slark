@@ -24,7 +24,7 @@ func Log(l logger.Logger) middleware.Middleware {
 			l.Log(ctx, logger.DebugLevel, fields, "request log")
 			rsp, err := handler(ctx, req)
 			fields = map[string]interface{}{
-				"latency": time.Since(start).Seconds(),
+				"latency": time.Since(start).Milliseconds(),
 				"fn":      fn,
 			}
 			var (

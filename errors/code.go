@@ -46,7 +46,7 @@ func HTTPToGRPCCode(code int) codes.Code {
 	case ClientClosed:
 		return codes.Canceled
 	}
-	return codes.Unknown
+	return codes.Code(code)
 }
 
 func GRPCToHTTPCode(code codes.Code) int {
@@ -86,5 +86,5 @@ func GRPCToHTTPCode(code codes.Code) int {
 	case codes.DataLoss:
 		return http.StatusInternalServerError
 	}
-	return http.StatusInternalServerError
+	return int(code)
 }
