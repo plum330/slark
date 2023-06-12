@@ -27,7 +27,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) ht
 	return func(ctx *http.Context) error {
 		var (
 			in {{.Request}}
-			out *{{.Reply}}
+			out interface{}
 			err error
 		)
 		
@@ -50,16 +50,13 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) ht
 		}
 		{{- end}}
 
-		err = in.ValidateAll()
-		if err != nil {
-			return errors.BadRequest(errors.ParamError, err.Error())
-		}
-
-		out, err = srv.{{.Name}}(ctx.Context(), &in)
+		out, err = ctx.Handle(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.{{.Name}}(ctx, req.(*{{.Request}}))
+		})(ctx.Context(), &in)
 		if err != nil {
 			return err
 		}
-		return ctx.Result(out)
+		return ctx.Result(out.(*{{.Reply}}))
 	}
 }
 {{end}}

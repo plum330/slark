@@ -111,6 +111,7 @@ type Response struct {
 func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) error {
 	r := &Response{
 		Header: &Header{
+			Code:  http.StatusOK,
 			RayID: req.Context().Value(utils.RayID),
 			Msg:   "成功",
 		},

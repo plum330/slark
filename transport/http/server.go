@@ -6,7 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/validate"
 	"net"
 	"net/http"
 )
@@ -15,6 +17,7 @@ type Server struct {
 	*http.Server
 	listener net.Listener
 	handlers []middleware.HTTPMiddleware // cors...
+	mws      []middleware.Middleware
 	err      error
 	network  string
 	address  string
@@ -50,6 +53,12 @@ func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
 	}
 }
 
+func Middlewares(mws ...middleware.Middleware) ServerOption {
+	return func(server *Server) {
+		server.mws = mws
+	}
+}
+
 func Logger(l logger.Logger) ServerOption {
 	return func(server *Server) {
 		server.logger = l
@@ -68,6 +77,7 @@ func NewServer(opts ...ServerOption) *Server {
 		network:  "tcp",
 		address:  "0.0.0.0:0",
 		basePath: "/",
+		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
 		Engine:   engine,
 		Codecs: &Codecs{
@@ -82,7 +92,8 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.Engine.Use(BuildRequestID(), Log(srv.logger))
+	srv.Engine.Use(BuildRequestID())
+	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate())
 	srv.handlers = append(srv.handlers, middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
 	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()

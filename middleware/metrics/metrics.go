@@ -3,6 +3,7 @@ package metrics
 import (
 	"context"
 	"github.com/go-slark/slark/middleware"
+	utils "github.com/go-slark/slark/pkg"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"time"
@@ -166,7 +167,7 @@ func GRPCMetrics(opts ...Options) middleware.Middleware {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			tm := time.Now()
 			rsp, err := handler(ctx, req)
-			m, _ := ctx.Value(struct{}{}).(map[string]string)
+			m, _ := ctx.Value(utils.Method).(map[string]string)
 			var method string
 			for k := range m {
 				method = k
