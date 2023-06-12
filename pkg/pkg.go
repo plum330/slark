@@ -15,6 +15,8 @@ const (
 
 	Target = "x-target"
 	Method = "x-method"
+
+	Discovery = "discovery"
 )
 
 func BuildRequestID() string {
