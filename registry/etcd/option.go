@@ -2,13 +2,12 @@ package etcd
 
 import (
 	"context"
-	"time"
 )
 
 type option struct {
 	ctx   context.Context
 	ns    string
-	ttl   time.Duration
+	ttl   int64
 	retry int
 }
 
