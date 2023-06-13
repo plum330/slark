@@ -17,7 +17,7 @@ type Registry struct {
 	opt    *option
 }
 
-func New(cfg clientv3.Config, opts ...Option) *Registry {
+func NewRegistry(cfg clientv3.Config, opts ...Option) *Registry {
 	opt := &option{
 		ctx:   context.Background(),
 		ns:    "/default",
@@ -140,99 +140,77 @@ func (r *Registry) Unregister(ctx context.Context, svc *registry.Service) error 
 	return err
 }
 
-//func (r *Registry) Discover(ctx context.Context, name string) ([]*registry.Service, error) {
-//	key := fmt.Sprintf("/%s/%s", r.opt.ns, name)
-//	cx, _ := context.WithCancel(ctx) // TODO
-//	watcher := clientv3.NewWatcher(r.client)
-//	watcher.Watch(cx, key, clientv3.WithPrefix(), clientv3.WithRev(0), clientv3.WithKeysOnly())
-//	err := watcher.RequestProgress(cx)
-//	if err != nil {
-//		return nil, err
-//	}
-//	rsp, err := clientv3.NewKV(r.client).Get(cx, key, clientv3.WithPrefix())
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	svc := make([]*registry.Service, 0, len(rsp.Kvs))
-//	for _, kv := range rsp.Kvs {
-//		s := &registry.Service{}
-//		err = json.Unmarshal(kv.Value, s)
-//		if err != nil {
-//			return nil, err
-//		}
-//		if s.Name != name {
-//			continue
-//		}
-//		svc = append(svc, s)
-//	}
-//	return svc, nil
-//}
+func (r *Registry) Discover(ctx context.Context, name string) (registry.Watcher, error) {
+	key := fmt.Sprintf("/%s/%s", r.opt.ns, name)
+	w := &watcher{
+		key:     key,
+		client:  r.client,
+		watcher: clientv3.NewWatcher(r.client),
+		kv:      clientv3.NewKV(r.client),
+		name:    name,
+	}
+	w.ctx, w.cancel = context.WithCancel(ctx)
+	w.wc = w.watcher.Watch(w.ctx, key, clientv3.WithPrefix(), clientv3.WithRev(0), clientv3.WithKeysOnly())
+	err := w.watcher.RequestProgress(w.ctx)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
 
-//type watcher struct {
-//	key         string
-//	ctx         context.Context
-//	cancel      context.CancelFunc
-//	client      *clientv3.Client
-//	watchChan   clientv3.WatchChan
-//	watcher     clientv3.Watcher
-//	kv          clientv3.KV
-//	first       bool
-//	serviceName string
-//}
+type watcher struct {
+	key     string
+	ctx     context.Context
+	cancel  context.CancelFunc
+	client  *clientv3.Client
+	wc      clientv3.WatchChan
+	watcher clientv3.Watcher
+	kv      clientv3.KV
+	name    string
+}
 
-//func (w *watcher) List() ([]*registry.Service, error) {
-//	// 是否需要区分first
-//	if w.first {
-//		item, err := w.getService()
-//		w.first = false
-//		return item, err
-//	}
-//
-//	select {
-//	case <-w.ctx.Done():
-//		return nil, w.ctx.Err()
-//	case watchResp, ok := <-w.watchChan:
-//		if !ok || watchResp.Err() != nil {
-//			time.Sleep(time.Second)
-//			err := w.reWatch()
-//			if err != nil {
-//				return nil, err
-//			}
-//		}
-//		return w.getService()
-//	}
-//}
+func (w *watcher) List() ([]*registry.Service, error) {
+	select {
+	case <-w.ctx.Done():
+		return nil, w.ctx.Err()
 
-//func (w *watcher) getService() ([]*registry.Service, error) {
-//	rsp, err := w.kv.Get(w.ctx, w.key, clientv3.WithPrefix())
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	svc := make([]*registry.Service, 0, len(rsp.Kvs))
-//	for _, kv := range rsp.Kvs {
-//		s := &registry.Service{}
-//		err = json.Unmarshal(kv.Value, s)
-//		if err != nil {
-//			return nil, err
-//		}
-//		if s.Name != w.serviceName {
-//			continue
-//		}
-//		svc = append(svc, s)
-//	}
-//	return svc, nil
-//}
+	case rsp, ok := <-w.wc:
+		if !ok || rsp.Err() != nil {
+			time.Sleep(time.Second)
+			_ = w.watcher.Close()
+			w.watcher = clientv3.NewWatcher(w.client)
+			w.wc = w.watcher.Watch(w.ctx, w.key, clientv3.WithPrefix(), clientv3.WithRev(0), clientv3.WithKeysOnly())
+			err := w.watcher.RequestProgress(w.ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return w.getService()
+	}
+}
 
-//func (w *watcher) reWatch() error {
-//	w.watcher.Close()
-//	w.watcher = clientv3.NewWatcher(w.client)
-//	w.watchChan = w.watcher.Watch(w.ctx, w.key, clientv3.WithPrefix(), clientv3.WithRev(0), clientv3.WithKeysOnly())
-//	return w.watcher.RequestProgress(w.ctx)
-//}
+func (w *watcher) getService() ([]*registry.Service, error) {
+	rsp, err := w.kv.Get(w.ctx, w.key, clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
 
-//func (w *watcher) Stop() error {
-//	w.cancel()
-//	return w.watcher.Close()
-//}
+	svc := make([]*registry.Service, 0, len(rsp.Kvs))
+	for _, kv := range rsp.Kvs {
+		s := &registry.Service{}
+		err = json.Unmarshal(kv.Value, s)
+		if err != nil {
+			return nil, err
+		}
+		if s.Name != w.name {
+			continue
+		}
+		svc = append(svc, s)
+	}
+	return svc, nil
+}
+
+func (w *watcher) Stop() error {
+	w.cancel()
+	return w.watcher.Close()
+}

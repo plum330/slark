@@ -2,7 +2,7 @@ package grpc
 
 import (
 	"context"
-	"errors"
+	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc/resolver"
 	"time"
@@ -24,37 +24,36 @@ func (p *parser) Close() {
 	_ = p.watcher.Stop()
 }
 
-func (p *parser) watch() {
+func (p *parser) start() {
 	for {
 		select {
 		case <-p.ctx.Done():
 			return
-		default:
-		}
 
-		svc, err := p.watcher.List()
-		if err != nil {
-			if errors.Is(err, context.Canceled) {
-				return
+		default:
+			svc, err := p.watcher.List()
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+				time.Sleep(time.Second)
+				continue
 			}
-			time.Sleep(time.Second)
-			continue
+			p.update(svc)
 		}
-		p.update(svc)
 	}
 }
 
+// TODO
 func (p *parser) update(svc []*registry.Service) {
-	addrs := make([]resolver.Address, 0, len(svc))
+	addresses := make([]resolver.Address, 0, len(svc))
 	for _, s := range svc {
 		addr := resolver.Address{
 			ServerName: s.Name,
 			//Attributes 字段可以用来保存负载均衡策略所使用的信息，比如权重信息
 			Addr: "",
 		}
-		addrs = append(addrs, addr)
+		addresses = append(addresses, addr)
 	}
-	err := p.cc.UpdateState(resolver.State{Addresses: addrs})
-	if err != nil {
-	}
+	_ = p.cc.UpdateState(resolver.State{Addresses: addresses})
 }

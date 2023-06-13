@@ -14,10 +14,10 @@ type Registry interface {
 }
 
 type Discovery interface {
-	Discover(ctx context.Context, name string) ([]*Service, error)
+	Discover(ctx context.Context, name string) (Watcher, error)
 }
 
-//type Watcher interface {
-//	List() ([]*Service, error)
-//	Stop() error
-//}
+type Watcher interface {
+	List() ([]*Service, error)
+	Stop() error
+}

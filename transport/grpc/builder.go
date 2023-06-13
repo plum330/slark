@@ -51,8 +51,9 @@ func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts res
 		watcher: watcher,
 		cancel:  cancel,
 		cc:      cc,
+		ctx:     cx,
 	}
-	go p.watch()
+	go p.start()
 	return p, nil
 }
 
