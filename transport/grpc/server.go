@@ -106,7 +106,7 @@ func (s *Server) Endpoint() (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	u := &url.URL{}
+	u := &url.URL{Scheme: utils.Discovery}
 	if len(ips) != 0 {
 		u.Host = net.JoinHostPort(ips[len(ips)-1].String(), port)
 	}

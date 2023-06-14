@@ -55,7 +55,7 @@ func (r *Registry) Register(ctx context.Context, svc *registry.Service) error {
 }
 
 func (r *Registry) put(ctx context.Context, key, value string) (clientv3.LeaseID, error) {
-	grant, err := r.lease.Grant(ctx, int64(time.Duration(r.opt.ttl)*time.Second))
+	grant, err := r.lease.Grant(ctx, r.opt.ttl)
 	if err != nil {
 		return 0, err
 	}

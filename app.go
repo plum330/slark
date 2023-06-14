@@ -109,10 +109,8 @@ func (a *App) Run() error {
 }
 
 func (a *App) service() (*registry.Service, error) {
-	var (
-		u   *url.URL
-		err error
-	)
+	var err error
+	u := &url.URL{}
 	for _, srv := range a.servers {
 		ep, ok := srv.(transport.Endpoint)
 		if !ok {

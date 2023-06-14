@@ -3,8 +3,10 @@ package grpc
 import (
 	"context"
 	"github.com/go-slark/slark/errors"
+	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc/resolver"
+	"net/url"
 	"time"
 )
 
@@ -48,10 +50,18 @@ func (p *parser) start() {
 func (p *parser) update(svc []*registry.Service) {
 	addresses := make([]resolver.Address, 0, len(svc))
 	for _, s := range svc {
+		u, err := url.Parse(s.Endpoint)
+		if err != nil {
+			continue
+		}
+		var address string
+		if u.Scheme == utils.Discovery {
+			address = u.Host
+		}
 		addr := resolver.Address{
 			ServerName: s.Name,
 			//Attributes 字段可以用来保存负载均衡策略所使用的信息，比如权重信息
-			Addr: "",
+			Addr: address,
 		}
 		addresses = append(addresses, addr)
 	}
