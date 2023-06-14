@@ -39,7 +39,7 @@ func NewRegistry(cfg clientv3.Config, opts ...Option) *Registry {
 }
 
 func (r *Registry) Register(ctx context.Context, svc *registry.Service) error {
-	key := fmt.Sprintf("/%s/%s/%s", r.opt.ns, svc.Name, svc.ID)
+	key := fmt.Sprintf("%s/%s/%s", r.opt.ns, svc.Name, svc.ID)
 	value, _ := json.Marshal(svc)
 	if r.lease != nil {
 		// release lease resource
@@ -132,7 +132,7 @@ func (r *Registry) keepAlive(ctx context.Context, leaseID clientv3.LeaseID, key,
 }
 
 func (r *Registry) Unregister(ctx context.Context, svc *registry.Service) error {
-	key := fmt.Sprintf("/%s/%s/%s", r.opt.ns, svc.Name, svc.ID)
+	key := fmt.Sprintf("%s/%s/%s", r.opt.ns, svc.Name, svc.ID)
 	_, err := r.client.Delete(ctx, key)
 	if r.lease != nil {
 		_ = r.lease.Close()
@@ -141,7 +141,7 @@ func (r *Registry) Unregister(ctx context.Context, svc *registry.Service) error 
 }
 
 func (r *Registry) Discover(ctx context.Context, name string) (registry.Watcher, error) {
-	key := fmt.Sprintf("/%s/%s", r.opt.ns, name)
+	key := fmt.Sprintf("%s/%s", r.opt.ns, name)
 	w := &watcher{
 		key:     key,
 		client:  r.client,

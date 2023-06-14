@@ -101,7 +101,7 @@ func (a *App) Run() error {
 	close(c)
 
 	if a.registry != nil {
-		cx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		cx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 		defer cancel()
 		return a.registry.Unregister(cx, svc)
 	}
