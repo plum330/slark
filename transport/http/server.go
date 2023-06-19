@@ -8,6 +8,7 @@ import (
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/trace"
 	"github.com/go-slark/slark/middleware/validate"
 	"net"
 	"net/http"
@@ -92,9 +93,8 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.Engine.Use(BuildRequestID())
 	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate())
-	srv.handlers = append(srv.handlers, middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
+	srv.handlers = append(srv.handlers, trace.BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
 	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
