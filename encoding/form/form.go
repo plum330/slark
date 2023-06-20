@@ -46,10 +46,10 @@ func (c *codec) Unmarshal(data []byte, v interface{}) error {
 	}
 
 	if m, ok := v.(proto.Message); ok {
-		return DecodeValues(m, values)
+		return parse(m, values)
 	}
 	if m, ok := rv.Interface().(proto.Message); ok {
-		return DecodeValues(m, values)
+		return parse(m, values)
 	}
 
 	return c.decoder.Decode(v, values)
