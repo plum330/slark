@@ -50,6 +50,7 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gi
 		}
 
 		newCtx = context.WithValue(ctx.Request.Context(), utils.Token, ctx.GetHeader(utils.Token))
+		newCtx = context.WithValue(newCtx, utils.UserAgent, ctx.GetHeader(utils.UserAgent))
 		out, err = srv.{{.Name}}(newCtx, &in)
 
 Label:

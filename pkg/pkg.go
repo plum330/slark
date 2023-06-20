@@ -12,6 +12,7 @@ const (
 	TraceID       = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"
+	UserAgent     = "User-Agent"
 
 	Target = "x-target"
 	Method = "x-method"
