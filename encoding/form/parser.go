@@ -67,23 +67,23 @@ func paddingFieldValues(v protoreflect.Message, paths, values []string) error {
 
 func getFieldDescriptor(v protoreflect.Message, field string) protoreflect.FieldDescriptor {
 	fields := v.Descriptor().Fields()
-	var fd protoreflect.FieldDescriptor
-	fd = getDescriptorByField(fields, field)
-	if fd == nil {
-		if v.Descriptor().FullName() == "google.protobuf.Struct" {
-			fd = fields.ByNumber(1)
-		} else {
-			if len(field) > 2 && strings.HasSuffix(field, "[]") {
-				fd = getDescriptorByField(fields, strings.TrimSuffix(field, "[]"))
-			}
-		}
+	fd := getDescriptorByField(fields, field)
+	if fd != nil {
+		return fd
+	}
+
+	if v.Descriptor().FullName() == "google.protobuf.Struct" {
+		fd = fields.ByNumber(1)
+	} else if len(field) > 2 && strings.HasSuffix(field, "[]") {
+		fd = getDescriptorByField(fields, strings.TrimSuffix(field, "[]"))
+	} else {
+		// TODO
 	}
 	return fd
 }
 
 func getDescriptorByField(fields protoreflect.FieldDescriptors, field string) protoreflect.FieldDescriptor {
-	var fd protoreflect.FieldDescriptor
-	fd = fields.ByName(protoreflect.Name(field))
+	fd := fields.ByName(protoreflect.Name(field))
 	if fd == nil {
 		fd = fields.ByJSONName(field)
 	}
@@ -91,12 +91,12 @@ func getDescriptorByField(fields protoreflect.FieldDescriptors, field string) pr
 }
 
 func paddingField(fd protoreflect.FieldDescriptor, v protoreflect.Message, value string) error {
-	if value == "" {
+	if len(value) == 0 {
 		return nil
 	}
 	val, err := parseField(fd, value)
 	if err != nil {
-		return fmt.Errorf("parsing field %s: %+v", fd.FullName().Name(), err)
+		return err
 	}
 	v.Set(fd, val)
 	return nil
@@ -106,7 +106,7 @@ func paddingRepeatedField(fd protoreflect.FieldDescriptor, list protoreflect.Lis
 	for _, value := range values {
 		v, err := parseField(fd, value)
 		if err != nil {
-			return fmt.Errorf("parsing list %s: %+v", fd.FullName().Name(), err)
+			return err
 		}
 		list.Append(v)
 	}
@@ -120,7 +120,7 @@ func paddingMapField(fd protoreflect.FieldDescriptor, mp protoreflect.Map, paths
 	}
 	key, err := parseField(fd.MapKey(), paths[l-1])
 	if err != nil {
-		return fmt.Errorf("parsing map key %s: %+v", fd.FullName().Name(), err)
+		return err
 	}
 	l = len(values)
 	if l == 0 {
@@ -128,19 +128,21 @@ func paddingMapField(fd protoreflect.FieldDescriptor, mp protoreflect.Map, paths
 	}
 	value, err := parseField(fd.MapValue(), values[l-1])
 	if err != nil {
-		return fmt.Errorf("parsing map value %s: %+v", fd.FullName().Name(), err)
+		return err
 	}
 	mp.Set(key.MapKey(), value)
 	return nil
 }
 
 func parse(msg proto.Message, values url.Values) error {
+	var err error
 	for key, value := range values {
-		if err := paddingFieldValues(msg.ProtoReflect(), strings.Split(key, "."), value); err != nil {
+		err = paddingFieldValues(msg.ProtoReflect(), strings.Split(key, "."), value)
+		if err != nil {
 			return err
 		}
 	}
-	return nil
+	return err
 }
 
 func parseField(fd protoreflect.FieldDescriptor, value string) (protoreflect.Value, error) {

@@ -37,18 +37,21 @@ func (c *codec) Unmarshal(data []byte, v interface{}) error {
 		return err
 	}
 
-	rv := reflect.ValueOf(v)
-	for rv.Kind() == reflect.Ptr {
-		if rv.IsNil() {
-			rv.Set(reflect.New(rv.Type().Elem()))
-		}
-		rv = rv.Elem()
-	}
-
-	if m, ok := v.(proto.Message); ok {
+	m, ok := v.(proto.Message)
+	if ok {
 		return parse(m, values)
 	}
-	if m, ok := rv.Interface().(proto.Message); ok {
+
+	value := reflect.ValueOf(v)
+	for value.Kind() == reflect.Ptr {
+		if value.IsNil() {
+			value.Set(reflect.New(value.Type().Elem()))
+		}
+		value = value.Elem()
+	}
+
+	m, ok = value.Interface().(proto.Message)
+	if ok {
 		return parse(m, values)
 	}
 
