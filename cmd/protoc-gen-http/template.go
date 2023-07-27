@@ -15,46 +15,48 @@ type {{.ServiceType}}HTTPServer interface {
 {{- end}}
 }
 
-func Register{{.ServiceType}}HTTPServer(srv {{.ServiceType}}HTTPServer) func(gin.IRouter) {
-	return func(group gin.IRouter){
+func Register{{.ServiceType}}HTTPServer(s *http.Server, srv {{.ServiceType}}HTTPServer) {
+	r := http.NewRouter(s)
 	{{- range .Methods}}
-	group.{{.Method}}("{{.Path}}", _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv))
+	r.Handle("{{.Method}}", "{{.Path}}", _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv))
 	{{- end}}
-	}
 }
 
 {{range .Methods}}
-func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) http.HandlerFunc {
+	return func(ctx *http.Context) error {
 		var (
 			in {{.Request}}
-			out *{{.Reply}}
+			out interface{}
 			err error
-			newCtx context.Context
 		)
-
-		{{- if .HasParam}}
-		err = ctx.ShouldBindUri(&in)
-		{{- else}}
+		
+		{{- if .HasBody}}
 		err = ctx.ShouldBind(&in)
+		if err != nil {
+			return errors.BadRequest(errors.FormatError, err.Error())
+		}
+
+		{{- else if .HasQuery}}
+		err = ctx.ShouldBindQuery(&in)
+		if err != nil {
+			return errors.BadRequest(errors.FormatError, err.Error())
+		}
+
+		{{- else}}
+		err = ctx.ShouldBindURI(&in)
+		if err != nil {
+			return errors.BadRequest(errors.FormatError, err.Error())	
+		}
 		{{- end}}
+
+		out, err = ctx.Handle(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return srv.{{.Name}}(ctx, req.(*{{.Request}}))
+		})(ctx.Context(), &in)
 		if err != nil {
-			err = errors.BadRequest(errors.FormatError, err.Error())
-			goto Label
+			return err
 		}
-
-		err = in.ValidateAll()
-		if err != nil {
-			err = errors.BadRequest(errors.ParamError, err.Error())
-			goto Label
-		}
-
-		newCtx = context.WithValue(ctx.Request.Context(), utils.Token, ctx.GetHeader(utils.Token))
-		newCtx = context.WithValue(newCtx, utils.UserAgent, ctx.GetHeader(utils.UserAgent))
-		out, err = srv.{{.Name}}(newCtx, &in)
-
-Label:
-	http.Result(out, err)(ctx)
+		return ctx.Result(out.(*{{.Reply}}))
 	}
 }
 {{end}}
@@ -62,9 +64,9 @@ Label:
 
 type serviceDesc struct {
 	PackageName string
-	ServiceType string // Greeter
-	ServiceName string // helloworld.Greeter
-	Metadata    string // api/helloworld/helloworld.proto
+	ServiceType string
+	ServiceName string
+	Metadata    string
 	Methods     []*methodDesc
 	MethodSets  map[string]*methodDesc
 }
@@ -79,9 +81,9 @@ type methodDesc struct {
 	// http_rule
 	Path         string
 	Method       string
-	HasParam     bool
+	HasVars      bool
 	HasBody      bool
-	Body         string
+	HasQuery     bool
 	ResponseBody string
 }
 

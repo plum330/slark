@@ -23,7 +23,7 @@ import (
 
 func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
-		ctx = context.WithValue(ctx, struct{}{}, info.FullMethod)
+		ctx = context.WithValue(ctx, utils.Method, info.FullMethod)
 		return middleware.ComposeMiddleware(s.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return handler(ctx, req)
 		})(ctx, req)
@@ -83,9 +83,9 @@ func UnaryServerTrace() middleware.Middleware {
 			if !ok {
 				return handler(ctx, req)
 			}
-			requestID := md[utils.TraceID]
+			requestID := md[utils.RayID]
 			if len(requestID) > 0 {
-				ctx = context.WithValue(ctx, utils.TraceID, requestID[0])
+				ctx = context.WithValue(ctx, utils.RayID, requestID[0])
 			}
 			return handler(ctx, req)
 		}
@@ -147,12 +147,12 @@ func UnaryClientTimeout(defaultTime time.Duration) grpc.UnaryClientInterceptor {
 
 func UnaryClientTrace() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, resp interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-		value := ctx.Value(utils.TraceID)
+		value := ctx.Value(utils.RayID)
 		requestID, ok := value.(string)
 		if !ok || len(requestID) == 0 {
 			requestID = utils.BuildRequestID()
 		}
-		ctx = metadata.AppendToOutgoingContext(ctx, utils.TraceID, requestID)
+		ctx = metadata.AppendToOutgoingContext(ctx, utils.RayID, requestID)
 		return invoker(ctx, method, req, resp, cc, opts...)
 	}
 }
@@ -189,7 +189,7 @@ func DialOpts() []grpc.DialOption {
 
 func (c *Client) unaryClientInterceptor() grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = context.WithValue(ctx, struct{}{}, map[string]string{method: cc.Target()})
+		ctx = context.WithValue(ctx, utils.Target, map[string]string{method: cc.Target()})
 		_, err := middleware.ComposeMiddleware(c.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return reply, invoker(ctx, method, req, reply, cc, opts...)
 		})(ctx, req)

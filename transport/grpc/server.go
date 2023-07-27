@@ -36,6 +36,7 @@ func NewServer(opts ...ServerOption) *Server {
 		network: "tcp",
 		address: "0.0.0.0:0",
 		health:  health.NewServer(),
+		logger:  logger.GetLogger(),
 	}
 	for _, o := range opts {
 		o(srv)

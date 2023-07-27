@@ -49,6 +49,7 @@ func NewServer(opts ...ServerOption) *Server {
 		},
 		network: "tcp",
 		address: "0.0.0.0:0",
+		logger:  logger.GetLogger(),
 	}
 
 	for _, opt := range opts {
@@ -180,7 +181,7 @@ func (s *Session) read() {
 		m := &Msg{
 			Type:    msgType,
 			Payload: payload,
-			ctx:     context.WithValue(context.Background(), utils.TraceID, utils.BuildRequestID()),
+			ctx:     context.WithValue(context.Background(), utils.RayID, utils.BuildRequestID()),
 		}
 		select {
 		case s.in <- m:

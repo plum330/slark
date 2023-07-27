@@ -9,14 +9,19 @@ import (
 )
 
 const (
-	LogName       = "log-name"
-	TraceID       = "x-request-id"
+	LogName       = "log-dumper"
+	RayID         = "x-request-id"
 	Authorization = "x-authorization"
 	Token         = "x-token"
+	Claims        = "x-jwt"
 	UserAgent     = "User-Agent"
+	Target      = "x-target"
+	Method      = "x-method"
+	RequestVars = "x-request-vars"
 
-	Target = "x-target"
-	Method = "x-method"
+	ContentType = "Content-Type"
+	Accept      = "Accept"
+	Application = "application"
 
 	Discovery = "discovery"
 )
@@ -27,7 +32,7 @@ func BuildRequestID() string {
 
 type Config struct {
 	Builder   func() string
-	RequestId string
+	RequestID string
 }
 
 type Option func(*Config)
@@ -38,20 +43,36 @@ func WithBuilder(b func() string) Option {
 	}
 }
 
-func WithRequestId(requestId string) Option {
+func WithRequestId(requestID string) Option {
 	return func(cfg *Config) {
-		cfg.RequestId = requestId
+		cfg.RequestID = requestID
 	}
 }
 
-func ParseToken(ctx context.Context, v interface{}) error {
+func MustParseToken(ctx context.Context, v interface{}) {
 	token, ok := ctx.Value(Token).(string)
 	if !ok {
-		return errors.Unauthorized(errors.TokenError, errors.TokenError)
+		panic(errors.TokenError)
 	}
-	return json.Unmarshal([]byte(token), v)
+	err := json.Unmarshal([]byte(token), v)
+	if err != nil {
+		panic(err)
+	}
 }
 
+func SnakeCase(s string) string {
+	l := len(s)
+	b := make([]byte, 0, l)
+	for i := 0; i < l; i++ {
+		c := s[i]
+		if 'A' <= c && c <= 'Z' {
+			b = append(b, '_')
+			c += 'a' - 'A'
+		}
+		b = append(b, c)
+	}
+	return string(b)
+}
 func FilterValidIP() ([]net.IP, error) {
 	is, err := net.Interfaces()
 	if err != nil {

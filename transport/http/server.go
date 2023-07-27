@@ -4,7 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/trace"
+	"github.com/go-slark/slark/middleware/validate"
 	"net"
 	"net/http"
 )
@@ -13,10 +18,14 @@ type Server struct {
 	*http.Server
 	listener net.Listener
 	handlers []middleware.HTTPMiddleware // cors...
+	mws      []middleware.Middleware
 	err      error
 	network  string
 	address  string
+	basePath string
 	Engine   *gin.Engine
+	logger   logger.Logger
+	Codecs   *Codecs
 }
 
 type ServerOption func(server *Server)
@@ -45,18 +54,47 @@ func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
 	}
 }
 
+func Middlewares(mws ...middleware.Middleware) ServerOption {
+	return func(server *Server) {
+		server.mws = mws
+	}
+}
+
+func Logger(l logger.Logger) ServerOption {
+	return func(server *Server) {
+		server.logger = l
+	}
+}
+
+func BasePath(bassPath string) ServerOption {
+	return func(server *Server) {
+		server.basePath = bassPath
+	}
+}
+
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
-		network: "tcp",
-		address: "0.0.0.0:0",
-		Server:  &http.Server{},
-		Engine:  engine,
+		network:  "tcp",
+		address:  "0.0.0.0:0",
+		basePath: "/",
+		logger:   logger.GetLogger(),
+		Server:   &http.Server{},
+		Engine:   engine,
+		Codecs: &Codecs{
+			bodyDecoder:  RequestBodyDecoder,
+			varsDecoder:  RequestVarsDecoder,
+			queryDecoder: RequestQueryDecoder,
+			rspEncoder:   ResponseEncoder,
+			errorEncoder: ErrorEncoder,
+		},
 	}
 	srv.Handler = srv.Engine
 	for _, o := range opts {
 		o(srv)
 	}
+	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate())
+	srv.handlers = append(srv.handlers, trace.BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
 	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv

@@ -84,7 +84,7 @@ func Authorize(f jwt.Keyfunc, opts ...Option) middleware.Middleware {
 				return nil, jwtSigningMethodError
 			}
 			// TODO
-			ctx = context.WithValue(ctx, struct{}{}, token.Claims)
+			ctx = context.WithValue(ctx, utils.Claims, token.Claims)
 			return handler(ctx, req)
 		}
 	}

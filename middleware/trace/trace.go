@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/middleware"
+	utils "github.com/go-slark/slark/pkg"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -117,7 +118,7 @@ func GRPCServerTrace(opts ...Option) middleware.Middleware {
 			if !ok {
 				md = metadata.MD{}
 			}
-			name, _ := ctx.Value(struct{}{}).(string)
+			name, _ := ctx.Value(utils.Method).(string)
 			name, attr := SpanInfo(name, parseAddr(ctx))
 			ctx, span := tracer.Start(ctx, name, &Metadata{&md}, trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(attr...))
 			defer tracer.Stop(ctx, span, rsp, err)
@@ -134,7 +135,7 @@ func GRPCClientTrace(opts ...Option) middleware.Middleware {
 			if !ok {
 				md = metadata.MD{}
 			}
-			m, _ := ctx.Value(struct{}{}).(map[string]string)
+			m, _ := ctx.Value(utils.Target).(map[string]string)
 			var (
 				name string
 				attr []attribute.KeyValue
