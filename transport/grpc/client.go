@@ -4,7 +4,10 @@ import (
 	"context"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/registry"
+	"github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 	"net"
 	"time"
 )
@@ -65,10 +68,6 @@ func NewClient(opts ...ClientOption) *Client {
 	return cli
 }
 
-func (c *Client) Stop() error {
-	return c.Close()
-}
-
 type ClientOption func(*Client)
 
 func ClientOptions(opts []grpc.DialOption) ClientOption {
@@ -111,4 +110,98 @@ func Discovery(discovery registry.Discovery) ClientOption {
 	return func(client *Client) {
 		client.discovery = discovery
 	}
+}
+
+type dialOption struct {
+	retry            uint
+	retryTimeout     time.Duration
+	waitBetween      time.Duration
+	jitter           float64
+	timeout          time.Duration
+	keepaliveTime    time.Duration
+	keepaliveTimeout time.Duration
+	keepaliveStream  bool
+}
+
+type DialOpt func(do *dialOption)
+
+func Retry(retry uint) DialOpt {
+	return func(do *dialOption) {
+		do.retry = retry
+	}
+}
+
+func RetryTimeout(tm time.Duration) DialOpt {
+	return func(do *dialOption) {
+		do.retryTimeout = tm
+	}
+}
+
+func WaitBetween(wb time.Duration) DialOpt {
+	return func(do *dialOption) {
+		do.waitBetween = wb
+	}
+}
+
+func Jitter(j float64) DialOpt {
+	return func(do *dialOption) {
+		do.jitter = j
+	}
+}
+
+func Timeout(tm time.Duration) DialOpt {
+	return func(do *dialOption) {
+		do.timeout = tm
+	}
+}
+
+func KeepaliveTime(tm time.Duration) DialOpt {
+	return func(do *dialOption) {
+		do.keepaliveTime = tm
+	}
+}
+
+func KeepaliveTimeout(tm time.Duration) DialOpt {
+	return func(do *dialOption) {
+		do.keepaliveTimeout = tm
+	}
+}
+
+func KeepaliveStream(stream bool) DialOpt {
+	return func(do *dialOption) {
+		do.keepaliveStream = stream
+	}
+}
+
+func DialOpts(opt ...DialOpt) []grpc.DialOption {
+	do := &dialOption{
+		retry:            3,
+		retryTimeout:     time.Second * 2,
+		waitBetween:      time.Second / 2,
+		jitter:           0.2,
+		timeout:          5 * time.Second,
+		keepaliveTime:    10 * time.Second,
+		keepaliveTimeout: time.Second,
+		keepaliveStream:  true,
+	}
+	for _, o := range opt {
+		o(do)
+	}
+	retryOps := []grpc_retry.CallOption{
+		grpc_retry.WithMax(do.retry),
+		grpc_retry.WithPerRetryTimeout(do.retryTimeout),
+		grpc_retry.WithBackoff(grpc_retry.BackoffLinearWithJitter(do.waitBetween, do.jitter)),
+	}
+	retry := grpc_retry.UnaryClientInterceptor(retryOps...)
+	opts := []grpc.DialOption{
+		grpc.WithChainUnaryInterceptor(retry, UnaryClientTimeout(do.timeout)),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                do.keepaliveTime,
+			Timeout:             do.keepaliveTimeout,
+			PermitWithoutStream: do.keepaliveStream,
+		}),
+	}
+	return opts
 }

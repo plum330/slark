@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
-	"github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -165,26 +163,6 @@ func UnaryClientAuthorize() grpc.UnaryClientInterceptor {
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
-}
-
-func DialOpts() []grpc.DialOption {
-	retryOps := []grpc_retry.CallOption{
-		grpc_retry.WithMax(3),
-		grpc_retry.WithPerRetryTimeout(time.Second * 2),
-		grpc_retry.WithBackoff(grpc_retry.BackoffLinearWithJitter(time.Second/2, 0.2)),
-	}
-	retry := grpc_retry.UnaryClientInterceptor(retryOps...)
-	opts := []grpc.DialOption{
-		grpc.WithChainUnaryInterceptor(retry, UnaryClientTimeout(3*time.Second)),
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                10 * time.Second,
-			Timeout:             time.Second,
-			PermitWithoutStream: true,
-		}),
-	}
-	return opts
 }
 
 func (c *Client) unaryClientInterceptor() grpc.UnaryClientInterceptor {

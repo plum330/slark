@@ -28,7 +28,7 @@ func (r *RegisterObjSet) NewGRPCServer(opts ...ServerOption) *Server {
 // GRPC Client
 
 type GRPCClient struct {
-	clients map[string]*Client
+	clients map[string]*grpc.ClientConn
 }
 
 type ClientObj struct {
@@ -39,23 +39,23 @@ type ClientObj struct {
 type DialOption func() []grpc.DialOption
 
 func NewGRPCClient(objs []*ClientObj, f DialOption, opts ...ClientOption) *GRPCClient {
-	clients := make(map[string]*Client, len(objs))
+	clients := make(map[string]*grpc.ClientConn, len(objs))
 	for _, obj := range objs {
 		client := NewClient(append(append(append([]ClientOption{}, WithAddr(obj.Addr)), ClientOptions(f())), opts...)...)
 		if client.err != nil {
 			os.Exit(errors.ClientClosed)
 		}
-		clients[obj.Name] = client
+		clients[obj.Name] = client.ClientConn
 	}
 	return &GRPCClient{clients: clients}
 }
 
-func (c *GRPCClient) GetGRPCClient(name string) *Client {
+func (c *GRPCClient) GetGRPCClient(name string) *grpc.ClientConn {
 	return c.clients[name]
 }
 
 func (c *GRPCClient) Stop() {
 	for _, client := range c.clients {
-		_ = client.Stop()
+		_ = client.Close()
 	}
 }
