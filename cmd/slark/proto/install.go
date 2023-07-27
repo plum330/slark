@@ -17,9 +17,9 @@ var InstallCmd = &cobra.Command{
 			"google.golang.org/protobuf/cmd/protoc-gen-go@latest",
 			"google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest",
 			"github.com/envoyproxy/protoc-gen-validate@latest",
-			"github.com/google/gnostic/cmd/protoc-gen-openapi@ade94e0", // TODO -> latest
-			"github.com/go-slark/slark/cmd/protoc-gen-gin@5fcc351",
-			"github.com/go-slark/slark/cmd/protoc-gen-errors@5fcc351",
+			"github.com/google/gnostic/cmd/protoc-gen-openapi@ade94e0", // TODO -> latest,
+			"github.com/go-slark/slark/cmd/protoc-gen-gin@latest",
+			"github.com/go-slark/slark/cmd/protoc-gen-errors@latest",
 			"github.com/google/wire/cmd/wire@latest",
 			"github.com/rakyll/statik@latest",
 			"github.com/mikefarah/yq/v4@latest",

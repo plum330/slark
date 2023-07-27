@@ -111,9 +111,6 @@ func create(path, dir string) error {
 		"--gin_opt=paths=source_relative",
 		"--errors_out=" + dir,
 		"--errors_opt=paths=source_relative",
-		//"--openapiv2_out=" + dir,
-		//"--openapiv2_opt=logtostderr=true",
-		//"--openapiv2_opt=json_names_for_fields=false",
 		"--openapi_out=" + dir,
 		"--openapi_opt=output_mode=source_relative,naming=proto,fq_schema_naming=true,default_response=false",
 	}
