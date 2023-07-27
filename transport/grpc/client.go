@@ -3,6 +3,7 @@ package grpc
 import (
 	"context"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc"
 	"net"
 	"time"
@@ -16,14 +17,15 @@ type ctx struct {
 
 type Client struct {
 	*grpc.ClientConn
-	listener net.Listener
-	ctx      ctx
-	err      error
-	address  string
-	opts     []grpc.DialOption
-	unary    []grpc.UnaryClientInterceptor
-	stream   []grpc.StreamClientInterceptor
-	mw       []middleware.Middleware
+	listener  net.Listener
+	ctx       ctx
+	err       error
+	address   string
+	opts      []grpc.DialOption
+	unary     []grpc.UnaryClientInterceptor
+	stream    []grpc.StreamClientInterceptor
+	mw        []middleware.Middleware
+	discovery registry.Discovery
 }
 
 func NewClient(opts ...ClientOption) *Client {
@@ -51,6 +53,10 @@ func NewClient(opts ...ClientOption) *Client {
 	}
 	if len(cli.opts) > 0 {
 		grpcOpts = append(grpcOpts, cli.opts...)
+	}
+
+	if cli.discovery != nil {
+		grpcOpts = append(grpcOpts, grpc.WithResolvers(NewBuilder(cli.discovery)))
 	}
 
 	conn, err := grpc.DialContext(cli.ctx.c, cli.address, grpcOpts...)
@@ -98,5 +104,11 @@ func WithStreamInterceptor(stream []grpc.StreamClientInterceptor) ClientOption {
 func WithMiddle(mw []middleware.Middleware) ClientOption {
 	return func(client *Client) {
 		client.mw = mw
+	}
+}
+
+func Discovery(discovery registry.Discovery) ClientOption {
+	return func(client *Client) {
+		client.discovery = discovery
 	}
 }

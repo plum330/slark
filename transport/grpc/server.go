@@ -2,15 +2,19 @@ package grpc
 
 import (
 	"context"
+	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/validate"
+	utils "github.com/go-slark/slark/pkg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"net"
+	"net/url"
+	"strconv"
 )
 
 type Server struct {
@@ -82,6 +86,31 @@ func (s *Server) listen() error {
 	}
 	s.listener = l
 	return nil
+}
+
+func (s *Server) Endpoint() (*url.URL, error) {
+	_, port, err := net.SplitHostPort(s.address)
+	if err != nil && s.listener == nil {
+		return nil, err
+	}
+	if s.listener != nil {
+		tcpAddr, ok := s.listener.Addr().(*net.TCPAddr)
+		if !ok {
+			return nil, errors.InternalServer("not tcp addr", "NOT_TCP_ADDR")
+		}
+
+		port = strconv.Itoa(tcpAddr.Port)
+	}
+
+	ips, err := utils.FilterValidIP()
+	if err != nil {
+		return nil, err
+	}
+	u := &url.URL{Scheme: utils.Discovery}
+	if len(ips) != 0 {
+		u.Host = net.JoinHostPort(ips[len(ips)-1].String(), port)
+	}
+	return u, nil
 }
 
 type ServerOption func(*Server)

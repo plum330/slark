@@ -26,9 +26,9 @@ var CreateCmd = &cobra.Command{
 
 		plugins := []string{
 			"protoc-gen-go", "protoc-gen-go-grpc",
-			"protoc-gen-gin", "protoc-gen-openapiv2",
+			"protoc-gen-gin", "protoc-gen-openapi",
 			"protoc-gen-validate", "protoc-go-inject-tag",
-			"protoc-gen-errors", "wire", "statik",
+			"protoc-gen-errors", "wire", "statik", "yq",
 		}
 		err := find(plugins...)
 		if err != nil {
@@ -111,9 +111,11 @@ func create(path, dir string) error {
 		"--gin_opt=paths=source_relative",
 		"--errors_out=" + dir,
 		"--errors_opt=paths=source_relative",
-		"--openapiv2_out=" + dir,
-		"--openapiv2_opt=logtostderr=true",
-		"--openapiv2_opt=json_names_for_fields=false",
+		//"--openapiv2_out=" + dir,
+		//"--openapiv2_opt=logtostderr=true",
+		//"--openapiv2_opt=json_names_for_fields=false",
+		"--openapi_out=" + dir,
+		"--openapi_opt=output_mode=source_relative,naming=proto,fq_schema_naming=true,default_response=false",
 	}
 	protoBytes, err := os.ReadFile(path)
 	if err == nil && len(protoBytes) > 0 {
