@@ -36,12 +36,10 @@ type ClientObj struct {
 	Addr string
 }
 
-type DialOption func() []grpc.DialOption
-
-func NewGRPCClient(objs []*ClientObj, f DialOption, opts ...ClientOption) *GRPCClient {
+func NewGRPCClient(objs []*ClientObj, opt []grpc.DialOption, opts ...ClientOption) *GRPCClient {
 	clients := make(map[string]*grpc.ClientConn, len(objs))
 	for _, obj := range objs {
-		client := NewClient(append(append(append([]ClientOption{}, WithAddr(obj.Addr)), ClientOptions(f())), opts...)...)
+		client := NewClient(append(append(append([]ClientOption{}, WithAddr(obj.Addr)), ClientOptions(opt)), opts...)...)
 		if client.err != nil {
 			os.Exit(errors.ClientClosed)
 		}
