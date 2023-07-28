@@ -98,8 +98,6 @@ func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, e
 	notify := make(chan struct{}, 1)
 	_, err = in.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			// TODO -> LOG
-			fmt.Println("uuuuuuuuuuuuuuu")
 			_, ok := obj.(*coreV1.Endpoints)
 			if !ok {
 				return
@@ -107,8 +105,6 @@ func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, e
 			notify <- struct{}{}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			// TODO -> LOG
-			fmt.Println("wwwwwwwwwwwwwwww")
 			oEndpoints, ok := oldObj.(*coreV1.Endpoints)
 			if !ok {
 				return
@@ -123,8 +119,6 @@ func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, e
 			notify <- struct{}{}
 		},
 		DeleteFunc: func(obj interface{}) {
-			// TODO -> LOG
-			fmt.Println("vvvvvvvvvvvv")
 			_, ok := obj.(*coreV1.Endpoints)
 			if !ok {
 				return
@@ -179,8 +173,6 @@ func (w *watcher) List() ([]*registry.Service, error) {
 				s.ID = string(addr.TargetRef.UID)
 			}
 			svc = append(svc, s)
-			// TODO -> LOG
-			fmt.Printf("k8s list svc:%+v\n", s)
 		}
 	}
 	return svc, nil

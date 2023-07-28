@@ -30,8 +30,6 @@ type Server struct {
 	address string
 	path    string
 	err     error
-
-	// session mng
 }
 
 func NewServer(opts ...ServerOption) *Server {
@@ -174,7 +172,7 @@ func (s *Session) read() {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
 			s.Close()
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": err, "id": s.id}
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": fmt.Sprintf("%+v", err), "id": s.id}
 			s.logger.Log(context.Background(), logger.ErrorLevel, fields, "read message exception")
 			break
 		}
@@ -187,6 +185,8 @@ func (s *Session) read() {
 		case s.in <- m:
 			atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 		case <-s.closing:
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
+			s.logger.Log(context.Background(), logger.WarnLevel, fields, "session read closing")
 			return
 		}
 	}
@@ -205,17 +205,19 @@ func (s *Session) write() {
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
 			err := s.wsConn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
-				// TODO
-				//return
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": fmt.Sprintf("%+v", err), "id": s.id}
+				s.logger.Log(context.Background(), logger.ErrorLevel, fields, "write message exception")
 			}
 		case <-s.closing:
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
+			s.logger.Log(context.Background(), logger.WarnLevel, fields, "session write closing")
 			return
 		case <-tk.C:
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
 			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
-				// TODO
-				//return
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": fmt.Sprintf("%+v", err), "id": s.id}
+				s.logger.Log(context.Background(), logger.ErrorLevel, fields, "write ping message exception")
 			}
 		}
 	}
@@ -231,12 +233,16 @@ func (s *Session) handleHB() {
 	for {
 		select {
 		case <-s.closing:
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
+			s.logger.Log(context.Background(), logger.WarnLevel, fields, "session hb closing")
 			return
 
 		default:
 			ts := atomic.LoadInt64(&s.hbTime)
 			if time.Now().Unix()-ts > int64(s.hbInterval) {
 				s.Close()
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
+				s.logger.Log(context.Background(), logger.WarnLevel, fields, "session hb exception")
 				return
 			}
 			time.Sleep(2 * time.Second)
@@ -249,7 +255,7 @@ func (s *Session) Receive() (*Msg, error) {
 	case m := <-s.in:
 		return m, nil
 	case <-s.closing:
-		return nil, errors.New("conn is closing")
+		return nil, errors.New("conn receive is closing")
 	}
 }
 
@@ -258,7 +264,7 @@ func (s *Session) Send(m *Msg) error {
 	select {
 	case s.out <- m:
 	case <-s.closing:
-		err = errors.New("conn is closing")
+		err = errors.New("conn send is closing")
 	}
 	return err
 }

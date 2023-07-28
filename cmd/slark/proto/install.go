@@ -13,9 +13,8 @@ var InstallCmd = &cobra.Command{
 	Long:  "install relative plugin",
 	Run: func(cmd *cobra.Command, args []string) {
 		plugins := []string{
-			"github.com/favadi/protoc-go-inject-tag@latest",
-			"google.golang.org/protobuf/cmd/protoc-gen-go@latest",
-			"google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest",
+			"google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0", // TODO -> latest
+			"google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0", // TODO -> latest
 			"github.com/envoyproxy/protoc-gen-validate@latest",
 			"github.com/google/gnostic/cmd/protoc-gen-openapi@ade94e0", // TODO -> latest,
 			"github.com/go-slark/slark/cmd/protoc-gen-http@latest",
