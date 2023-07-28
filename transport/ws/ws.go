@@ -132,7 +132,8 @@ type Conn interface {
 
 type Session struct {
 	id         string
-	context    interface{}
+	context    context.Context
+	ctx        interface{}
 	wsConn     *websocket.Conn
 	in         chan *Msg
 	out        chan *Msg
@@ -172,21 +173,21 @@ func (s *Session) read() {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
 			s.Close()
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": fmt.Sprintf("%+v", err), "id": s.id}
-			s.logger.Log(context.Background(), logger.ErrorLevel, fields, "read message exception")
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
+			s.logger.Log(s.context, logger.ErrorLevel, fields, "read message exception")
 			break
 		}
 		m := &Msg{
 			Type:    msgType,
 			Payload: payload,
-			ctx:     context.WithValue(context.Background(), utils.RayID, utils.BuildRequestID()),
+			ctx:     context.WithValue(context.WithValue(context.Background(), utils.RayID, utils.BuildRequestID()), utils.Token, s.context.Value(utils.Token)),
 		}
 		select {
 		case s.in <- m:
 			atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
-			s.logger.Log(context.Background(), logger.WarnLevel, fields, "session read closing")
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
+			s.logger.Log(s.context, logger.WarnLevel, fields, "session read closing")
 			return
 		}
 	}
@@ -205,19 +206,19 @@ func (s *Session) write() {
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
 			err := s.wsConn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": fmt.Sprintf("%+v", err), "id": s.id}
-				s.logger.Log(context.Background(), logger.ErrorLevel, fields, "write message exception")
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
+				s.logger.Log(s.context, logger.ErrorLevel, fields, "write message exception")
 			}
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
-			s.logger.Log(context.Background(), logger.WarnLevel, fields, "session write closing")
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
+			s.logger.Log(s.context, logger.WarnLevel, fields, "session write closing")
 			return
 		case <-tk.C:
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
 			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "error": fmt.Sprintf("%+v", err), "id": s.id}
-				s.logger.Log(context.Background(), logger.ErrorLevel, fields, "write ping message exception")
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
+				s.logger.Log(s.context, logger.ErrorLevel, fields, "write ping message exception")
 			}
 		}
 	}
@@ -233,16 +234,16 @@ func (s *Session) handleHB() {
 	for {
 		select {
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
-			s.logger.Log(context.Background(), logger.WarnLevel, fields, "session hb closing")
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
+			s.logger.Log(s.context, logger.WarnLevel, fields, "session hb closing")
 			return
 
 		default:
 			ts := atomic.LoadInt64(&s.hbTime)
 			if time.Now().Unix()-ts > int64(s.hbInterval) {
 				s.Close()
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.context), "id": s.id}
-				s.logger.Log(context.Background(), logger.WarnLevel, fields, "session hb exception")
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
+				s.logger.Log(s.context, logger.WarnLevel, fields, "session hb exception")
 				return
 			}
 			time.Sleep(2 * time.Second)
@@ -280,12 +281,20 @@ func (s *Session) Close() {
 	s.isClosed = true
 }
 
-func (s *Session) SetContext(ctx interface{}) {
+func (s *Session) SetContext(ctx context.Context) {
 	s.context = ctx
 }
 
-func (s *Session) Context() interface{} {
+func (s *Session) Context() context.Context {
 	return s.context
+}
+
+func (s *Session) SetCtx(ctx interface{}) {
+	s.ctx = ctx
+}
+
+func (s *Session) Ctx() interface{} {
+	return s.ctx
 }
 
 func (s *Session) ID() string {
