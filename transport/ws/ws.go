@@ -172,9 +172,15 @@ func (s *Session) read() {
 	for {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
-			s.Close()
 			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
-			s.logger.Log(s.context, logger.ErrorLevel, fields, "read message exception")
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message timeout")
+			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message unexpected close")
+			} else {
+				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message exception")
+			}
+			s.Close()
 			break
 		}
 		m := &Msg{
@@ -208,6 +214,7 @@ func (s *Session) write() {
 			if err != nil {
 				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "write message exception")
+				return
 			}
 		case <-s.closing:
 			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
@@ -219,6 +226,7 @@ func (s *Session) write() {
 			if err != nil {
 				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "write ping message exception")
+				return
 			}
 		}
 	}
@@ -271,6 +279,8 @@ func (s *Session) Send(m *Msg) error {
 }
 
 func (s *Session) Close() {
+	_ = s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	time.Sleep(5 * time.Second)
 	_ = s.wsConn.Close()
 	s.Lock()
 	defer s.Unlock()
