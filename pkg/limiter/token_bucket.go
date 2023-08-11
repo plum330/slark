@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis"
+	"github.com/go-slark/slark/logger"
 	"golang.org/x/time/rate"
 	"strconv"
 	"sync"
@@ -22,6 +23,7 @@ type TBLimiter struct {
 	tsKey    string
 	monitor  bool
 	limiter  *rate.Limiter // local limiter
+	logger   logger.Logger
 }
 
 func NewTBLimiter(limit, burst int, redis *redis.Client, key string) *TBLimiter {
@@ -33,45 +35,46 @@ func NewTBLimiter(limit, burst int, redis *redis.Client, key string) *TBLimiter 
 		tsKey:    fmt.Sprintf("token_bucket:key:%s:ts", key),
 		alive:    1,
 		limiter:  rate.NewLimiter(rate.Every(time.Second/time.Duration(limit)), burst),
+		logger:   logger.GetLogger(),
 	}
 }
 
 func (l *TBLimiter) AllowN(now time.Time, n int) bool {
-	return l.reserveN(now, n)
+	return l.reserveN(context.Background(), now, n)
 }
 
 const script string = `
 	local rate = tonumber(ARGV[1])
 	local capacity = tonumber(ARGV[2])
-	local now = tonumber(ARGV[3])
-	local requested = tonumber(ARGV[4])
+	local now_ts = tonumber(ARGV[3])
+	local request_tokens = tonumber(ARGV[4])
 	local fill_time = capacity/rate
 	local ttl = math.floor(fill_time*2)
-	local last_tokens = tonumber(redis.call("get", KEYS[1]))
+	local last_tokens = tonumber(redis.call("GET", KEYS[1]))
 	if last_tokens == nil then
     	last_tokens = capacity
 	end
 
-	local last_refreshed = tonumber(redis.call("get", KEYS[2]))
-	if last_refreshed == nil then
-    	last_refreshed = 0
+	local last_refresh_ts = tonumber(redis.call("GET", KEYS[2]))
+	if last_refresh_ts == nil then
+    	last_refresh_ts = 0
 	end
 
-	local delta = math.max(0, now-last_refreshed)
+	local delta = math.max(0, now_ts-last_refresh_ts)
 	local filled_tokens = math.min(capacity, last_tokens+(delta*rate))
-	local allowed = filled_tokens >= requested
+	local allowed = filled_tokens >= request_tokens
 	local new_tokens = filled_tokens
 	if allowed then
-    	new_tokens = filled_tokens - requested
+    	new_tokens = filled_tokens - request_tokens
 	end
 
-	redis.call("setex", KEYS[1], ttl, new_tokens)
-	redis.call("setex", KEYS[2], ttl, now)
+	redis.call("SETEX", KEYS[1], ttl, new_tokens)
+	redis.call("SETEX", KEYS[2], ttl, now_ts)
 
 	return allowed
 `
 
-func (l *TBLimiter) reserveN(now time.Time, n int) bool {
+func (l *TBLimiter) reserveN(ctx context.Context, now time.Time, n int) bool {
 	if atomic.LoadUint32(&l.alive) == 0 {
 		return l.limiter.AllowN(now, n)
 	}
@@ -88,22 +91,25 @@ func (l *TBLimiter) reserveN(now time.Time, n int) bool {
 		return false
 	}
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		l.logger.Log(ctx, logger.ErrorLevel, map[string]interface{}{"error": fmt.Sprintf("%+v", err)}, "limit fail")
 		return false
 	}
 	if err != nil {
-		l.startMonitor()
+		l.logger.Log(ctx, logger.ErrorLevel, map[string]interface{}{"error": fmt.Sprintf("%+v", err)}, "script run fail, use local limiter")
+		l.observe()
 		return l.limiter.AllowN(now, n)
 	}
 
 	code, ok := result.(int64)
 	if !ok {
-		l.startMonitor()
+		l.logger.Log(ctx, logger.ErrorLevel, map[string]interface{}{"result": fmt.Sprintf("%+v", result)}, "script result invalid, use local limiter")
+		l.observe()
 		return l.limiter.AllowN(now, n)
 	}
 	return code == 1
 }
 
-func (l *TBLimiter) startMonitor() {
+func (l *TBLimiter) observe() {
 	l.l.Lock()
 	defer l.l.Unlock()
 
@@ -114,10 +120,10 @@ func (l *TBLimiter) startMonitor() {
 	l.monitor = true
 	atomic.StoreUint32(&l.alive, 0)
 
-	go l.waitForRedis()
+	go l.health()
 }
 
-func (l *TBLimiter) waitForRedis() {
+func (l *TBLimiter) health() {
 	tk := time.NewTicker(100 * time.Millisecond)
 	defer func() {
 		tk.Stop()

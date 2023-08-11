@@ -41,7 +41,6 @@ func NewServer(opts ...ServerOption) *Server {
 			rBuffer:    1024,
 			wBuffer:    1024,
 			hbInterval: 15 * time.Second,
-			hbTime:     time.Now().Unix(),
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
 		},
@@ -109,7 +108,6 @@ type ConnOption struct {
 	rBuffer    int
 	wBuffer    int
 	hbInterval time.Duration
-	hbTime     int64
 	wTime      time.Duration
 	hsTime     time.Duration
 	rLimit     int64
@@ -142,6 +140,7 @@ type Session struct {
 	logger     logger.Logger
 	sync.Mutex // avoid close chan duplicated
 	*ConnOption
+	hbTime int64
 }
 
 func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, error) {
@@ -157,6 +156,7 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 		closing:    make(chan struct{}, 1),
 		logger:     s.logger,
 		ConnOption: s.ConnOption,
+		hbTime:     time.Now().Unix(),
 	}
 	go sess.read()
 	go sess.write()
@@ -240,13 +240,13 @@ func (s *Session) handleHB() {
 
 		default:
 			ts := atomic.LoadInt64(&s.hbTime)
-			if time.Now().Unix()-ts > int64(s.hbInterval) {
+			if time.Now().Unix()-ts > int64(s.hbInterval.Seconds()) {
 				s.Close()
 				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
 				s.logger.Log(s.context, logger.WarnLevel, fields, "session hb exception")
 				return
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(s.hbInterval * 1 / 10) // 10%
 		}
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"github.com/go-slark/slark/pkg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"runtime/debug"
@@ -108,23 +107,6 @@ func UnaryServerAuthorize() middleware.Middleware {
 			return handler(ctx, req)
 		}
 	}
-}
-
-func ServerOpts() []grpc.ServerOption {
-	option := []grpc.ServerOption{
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionIdle:     15 * time.Second,
-			MaxConnectionAge:      30 * time.Second,
-			MaxConnectionAgeGrace: 5 * time.Second,
-			Time:                  5 * time.Second,
-			Timeout:               1 * time.Second,
-		}),
-		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             5 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	}
-	return option
 }
 
 // client

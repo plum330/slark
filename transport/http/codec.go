@@ -157,3 +157,24 @@ func ErrorEncoder(req *http.Request, rsp http.ResponseWriter, err error) {
 	rsp.WriteHeader(http.StatusOK)
 	_, _ = rsp.Write(data)
 }
+
+func OverloadErrorEncoder(req *http.Request, rsp http.ResponseWriter, err error) {
+	e := errors.FromError(err)
+	code := int(e.Code)
+	response := &Response{
+		Header: &Header{
+			Code:  code,
+			RayID: req.Context().Value(utils.RayID),
+			Msg:   e.Message,
+		},
+	}
+	codec, _ := Codec(req, "*") // utils.Accept
+	data, err := codec.Marshal(response)
+	if err != nil {
+		rsp.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
+	rsp.WriteHeader(code)
+	_, _ = rsp.Write(data)
+}

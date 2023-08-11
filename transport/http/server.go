@@ -72,6 +72,12 @@ func BasePath(bassPath string) ServerOption {
 	}
 }
 
+func ErrorCodec(ec func(*http.Request, http.ResponseWriter, error)) ServerOption {
+	return func(server *Server) {
+		server.Codecs.errorEncoder = ec
+	}
+}
+
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
