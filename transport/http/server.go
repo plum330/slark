@@ -78,6 +78,12 @@ func ErrorCodec(ec func(*http.Request, http.ResponseWriter, error)) ServerOption
 	}
 }
 
+func RspCodec(rc func(*http.Request, http.ResponseWriter, interface{}) error) ServerOption {
+	return func(server *Server) {
+		server.Codecs.rspEncoder = rc
+	}
+}
+
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{

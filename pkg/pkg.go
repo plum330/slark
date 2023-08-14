@@ -15,9 +15,9 @@ const (
 	Token         = "x-token"
 	Claims        = "x-jwt"
 	UserAgent     = "User-Agent"
-	Target      = "x-target"
-	Method      = "x-method"
-	RequestVars = "x-request-vars"
+	Target        = "x-target"
+	Method        = "x-method"
+	RequestVars   = "x-request-vars"
 
 	ContentType = "Content-Type"
 	Accept      = "Accept"

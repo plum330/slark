@@ -40,7 +40,7 @@ func NewServer(opts ...ServerOption) *Server {
 			out:        1000,
 			rBuffer:    1024,
 			wBuffer:    1024,
-			hbInterval: 15 * time.Second,
+			hbInterval: 60 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
 		},
@@ -150,6 +150,7 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 	}
 	sess := &Session{
 		id:         newID(),
+		context:    context.Background(),
 		wsConn:     ws,
 		in:         make(chan *Msg, s.in),
 		out:        make(chan *Msg, s.out),
@@ -178,7 +179,7 @@ func (s *Session) read() {
 			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message unexpected close")
 			} else {
-				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message exception")
+				s.logger.Log(s.context, logger.DebugLevel, fields, "read message close")
 			}
 			s.Close()
 			break

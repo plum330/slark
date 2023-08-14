@@ -22,6 +22,7 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 		c.ctx = context.Background()
 	} else {
 		c.ctx = context.WithValue(c.req.Context(), utils.Token, c.req.Header.Get(utils.Token))
+		c.ctx = context.WithValue(c.ctx, utils.Authorization, c.req.Header.Get(utils.Authorization))
 		c.ctx = context.WithValue(c.ctx, utils.UserAgent, c.req.Header.Get(utils.UserAgent))
 	}
 }
