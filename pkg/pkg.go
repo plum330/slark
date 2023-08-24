@@ -19,6 +19,10 @@ const (
 	Method        = "x-method"
 	RequestVars   = "x-request-vars"
 
+	XForwardedMethod = "X-Forwarded-Method"
+	XForwardedURI    = "X-Forwarded-Uri"
+	XForwardedIP     = "X-Forwarded-For"
+
 	ContentType = "Content-Type"
 	Accept      = "Accept"
 	Application = "application"

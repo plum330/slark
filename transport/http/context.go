@@ -24,6 +24,9 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 		c.ctx = context.WithValue(c.req.Context(), utils.Token, c.req.Header.Get(utils.Token))
 		c.ctx = context.WithValue(c.ctx, utils.Authorization, c.req.Header.Get(utils.Authorization))
 		c.ctx = context.WithValue(c.ctx, utils.UserAgent, c.req.Header.Get(utils.UserAgent))
+		c.ctx = context.WithValue(c.ctx, utils.XForwardedMethod, c.req.Header.Get(utils.XForwardedMethod))
+		c.ctx = context.WithValue(c.ctx, utils.XForwardedURI, c.req.Header.Get(utils.XForwardedURI))
+		c.ctx = context.WithValue(c.ctx, utils.XForwardedIP, c.req.Header.Get(utils.XForwardedIP))
 	}
 }
 
