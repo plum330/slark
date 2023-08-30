@@ -43,6 +43,7 @@ func NewServer(opts ...ServerOption) *Server {
 			hbInterval: 60 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
+			closeTime:  500 * time.Millisecond,
 		},
 		network: "tcp",
 		address: "0.0.0.0:0",
@@ -110,6 +111,7 @@ type ConnOption struct {
 	hbInterval time.Duration
 	wTime      time.Duration
 	hsTime     time.Duration
+	closeTime  time.Duration
 	rLimit     int64
 }
 
@@ -137,6 +139,7 @@ type Session struct {
 	out        chan *Msg
 	closing    chan struct{}
 	isClosed   bool
+	closeTime  time.Duration
 	logger     logger.Logger
 	sync.Mutex // avoid close chan duplicated
 	*ConnOption
@@ -155,6 +158,7 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 		in:         make(chan *Msg, s.in),
 		out:        make(chan *Msg, s.out),
 		closing:    make(chan struct{}, 1),
+		closeTime:  s.closeTime,
 		logger:     s.logger,
 		ConnOption: s.ConnOption,
 		hbTime:     time.Now().Unix(),
@@ -281,7 +285,7 @@ func (s *Session) Send(m *Msg) error {
 
 func (s *Session) Close() {
 	_ = s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	time.Sleep(5 * time.Second)
+	time.Sleep(s.closeTime)
 	_ = s.wsConn.Close()
 	s.Lock()
 	defer s.Unlock()

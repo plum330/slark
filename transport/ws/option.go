@@ -102,3 +102,11 @@ func WithReadLimit(rLimit int64) Option {
 		opt.rLimit = rLimit
 	}
 }
+
+func WithCloseTime(tm time.Duration) Option {
+	return func(opt *ConnOption) {
+		if tm != 0 {
+			opt.closeTime = tm
+		}
+	}
+}
