@@ -13,6 +13,7 @@ const (
 	ParamError  = "PARAM_ERROR"
 	FormatError = "FORMAT_ERROR"
 	TokenError  = "TOKEN_ERROR"
+	HeaderError = "HEADER_ERROR"
 
 	SupportPackageIsVersion1 = true
 

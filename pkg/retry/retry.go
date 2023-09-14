@@ -9,7 +9,7 @@ package retry
 
 import (
 	"context"
-	"fmt"
+	"github.com/go-slark/slark/logger"
 	"math"
 	"math/rand"
 	"time"
@@ -168,7 +168,7 @@ func delay(o *Option, n int) time.Duration {
 		delayTime = o.maxDelay
 	}
 	if o.debug {
-		fmt.Println("current relative time, delay time: ", delayTime, "max delay time:", o.maxDelay)
+		logger.Log(context.TODO(), logger.DebugLevel, map[string]interface{}{"times": n, "delay_time": delayTime, "max_delay": o.maxDelay}, "正在进行重试")
 	}
 	return delayTime
 }

@@ -21,12 +21,15 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	if c.req == nil {
 		c.ctx = context.Background()
 	} else {
-		c.ctx = context.WithValue(c.req.Context(), utils.Token, c.req.Header.Get(utils.Token))
-		c.ctx = context.WithValue(c.ctx, utils.Authorization, c.req.Header.Get(utils.Authorization))
-		c.ctx = context.WithValue(c.ctx, utils.UserAgent, c.req.Header.Get(utils.UserAgent))
-		c.ctx = context.WithValue(c.ctx, utils.XForwardedMethod, c.req.Header.Get(utils.XForwardedMethod))
-		c.ctx = context.WithValue(c.ctx, utils.XForwardedURI, c.req.Header.Get(utils.XForwardedURI))
-		c.ctx = context.WithValue(c.ctx, utils.XForwardedIP, c.req.Header.Get(utils.XForwardedIP))
+		c.ctx = c.req.Context()
+		headers := []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension}
+		for _, hk := range headers {
+			hv := c.req.Header.Get(hk)
+			if len(hv) == 0 {
+				continue
+			}
+			c.ctx = context.WithValue(c.ctx, hk, hv)
+		}
 	}
 }
 

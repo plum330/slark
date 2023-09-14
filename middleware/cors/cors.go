@@ -29,9 +29,21 @@ func AllowOriginFunc(allow bool) Option {
 	}
 }
 
+func AllowOrigins(origins []string) Option {
+	return func(options *cors.Options) {
+		options.AllowedOrigins = origins
+	}
+}
+
 func AllowedHeaders(headers []string) Option {
 	return func(options *cors.Options) {
 		options.AllowedHeaders = headers
+	}
+}
+
+func ExposedHeaders(headers []string) Option {
+	return func(options *cors.Options) {
+		options.ExposedHeaders = headers
 	}
 }
 
@@ -45,10 +57,10 @@ func CORS(opts ...Option) middleware.HTTPMiddleware {
 	return func(handler http.Handler) http.Handler {
 		options := cors.Options{
 			AllowCredentials: true,
-			AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch},
+			AllowedMethods:   []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch, http.MethodOptions},
 			AllowOriginFunc:  func(origin string) bool { return true },
-			AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", utils.Authorization, "Content-Disposition"},
-			ExposedHeaders:   []string{utils.Authorization, "Content-Disposition"},
+			AllowedHeaders:   []string{"Origin", "Content-Length", "Content-Type", "Accept-Encoding", "Authorization", "X-CSRF-Token", utils.Authorization, utils.Token, "Content-Disposition"},
+			ExposedHeaders:   []string{utils.Authorization, utils.Token, "Content-Disposition"},
 			MaxAge:           43200, // 12 Hours
 		}
 		for _, opt := range opts {
