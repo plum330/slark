@@ -42,7 +42,7 @@ func Path(path string) ServerOption {
 func ConnOpt(opts ...Option) ServerOption {
 	return func(server *Server) {
 		for _, opt := range opts {
-			opt(server.ConnOption)
+			opt(server.opt)
 		}
 	}
 }

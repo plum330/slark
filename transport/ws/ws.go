@@ -19,23 +19,22 @@ import (
 type Server struct {
 	*http.Server
 	handlers []middleware.HTTPMiddleware
-	*ConnOption
-
+	opt      *ConnOption
 	ug       *websocket.Upgrader
 	listener net.Listener
 	handler  http.Handler
 	logger   logger.Logger
-
-	network string
-	address string
-	path    string
-	err     error
+	pool     *sync.Pool
+	network  string
+	address  string
+	path     string
+	err      error
 }
 
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		Server: &http.Server{},
-		ConnOption: &ConnOption{
+		opt: &ConnOption{
 			in:         1000,
 			out:        1000,
 			rBuffer:    1024,
@@ -44,6 +43,11 @@ func NewServer(opts ...ServerOption) *Server {
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
 			closeTime:  500 * time.Millisecond,
+		},
+		pool: &sync.Pool{
+			New: func() interface{} {
+				return new(Session)
+			},
 		},
 		network: "tcp",
 		address: "0.0.0.0:0",
@@ -55,9 +59,9 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 
 	srv.ug = &websocket.Upgrader{
-		HandshakeTimeout: srv.hsTime,
-		ReadBufferSize:   srv.rBuffer,
-		WriteBufferSize:  srv.wBuffer,
+		HandshakeTimeout: srv.opt.hsTime,
+		ReadBufferSize:   srv.opt.rBuffer,
+		WriteBufferSize:  srv.opt.wBuffer,
 		CheckOrigin: func(r *http.Request) bool {
 			// 校验规则
 			if r.Method != http.MethodGet {
@@ -131,19 +135,34 @@ type Conn interface {
 }
 
 type Session struct {
-	id         string
-	context    context.Context
-	ctx        interface{}
-	wsConn     *websocket.Conn
-	in         chan *Msg
-	out        chan *Msg
-	closing    chan struct{}
-	isClosed   bool
-	closeTime  time.Duration
-	logger     logger.Logger
-	sync.Mutex // avoid close chan duplicated
-	*ConnOption
-	hbTime int64
+	id        string
+	context   context.Context
+	ctx       interface{}
+	wsConn    *websocket.Conn
+	in        chan *Msg
+	out       chan *Msg
+	closing   chan struct{}
+	isClosed  bool
+	closeTime time.Duration
+	logger    logger.Logger
+	pool      *sync.Pool
+	l         sync.Mutex // avoid close chan duplicated
+	opt       *ConnOption
+	hbTime    int64
+}
+
+func (s *Session) reset(conn *websocket.Conn, srv *Server) {
+	s.id = newID()
+	s.context = context.Background()
+	s.wsConn = conn
+	s.in = make(chan *Msg, srv.opt.in)
+	s.out = make(chan *Msg, srv.opt.out)
+	s.closing = make(chan struct{}, 1)
+	s.closeTime = srv.opt.closeTime
+	s.logger = srv.logger
+	s.pool = srv.pool
+	s.opt = srv.opt
+	s.hbTime = time.Now().Unix()
 }
 
 func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, error) {
@@ -151,18 +170,8 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 	if err != nil {
 		return nil, err
 	}
-	sess := &Session{
-		id:         newID(),
-		context:    context.Background(),
-		wsConn:     ws,
-		in:         make(chan *Msg, s.in),
-		out:        make(chan *Msg, s.out),
-		closing:    make(chan struct{}, 1),
-		closeTime:  s.closeTime,
-		logger:     s.logger,
-		ConnOption: s.ConnOption,
-		hbTime:     time.Now().Unix(),
-	}
+	sess := s.pool.Get().(*Session)
+	sess.reset(ws, s)
 	go sess.read()
 	go sess.write()
 	go sess.handleHB()
@@ -170,10 +179,10 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 }
 
 func (s *Session) read() {
-	if s.rLimit > 0 {
-		s.wsConn.SetReadLimit(s.rLimit)
+	if s.opt.rLimit > 0 {
+		s.wsConn.SetReadLimit(s.opt.rLimit)
 	}
-	_ = s.wsConn.SetReadDeadline(time.Now().Add(s.hbInterval))
+	_ = s.wsConn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
 	for {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
@@ -205,7 +214,7 @@ func (s *Session) read() {
 }
 
 func (s *Session) write() {
-	tk := time.NewTicker(s.hbInterval * 4 / 5)
+	tk := time.NewTicker(s.opt.hbInterval * 4 / 5)
 	defer func() {
 		tk.Stop()
 		s.Close()
@@ -214,7 +223,7 @@ func (s *Session) write() {
 	for {
 		select {
 		case m := <-s.out:
-			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
+			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 			err := s.wsConn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
 				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
@@ -226,7 +235,7 @@ func (s *Session) write() {
 			s.logger.Log(s.context, logger.WarnLevel, fields, "session write closing")
 			return
 		case <-tk.C:
-			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.wTime))
+			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
 				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
@@ -239,8 +248,16 @@ func (s *Session) write() {
 
 func (s *Session) handleHB() {
 	s.wsConn.SetPongHandler(func(appData string) error {
-		_ = s.wsConn.SetReadDeadline(time.Now().Add(s.hbInterval))
+		_ = s.wsConn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
 		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
+		return nil
+	})
+	s.wsConn.SetPingHandler(func(appData string) error {
+		_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
+		return nil
+	})
+	s.wsConn.SetCloseHandler(func(code int, text string) error {
 		return nil
 	})
 
@@ -253,13 +270,13 @@ func (s *Session) handleHB() {
 
 		default:
 			ts := atomic.LoadInt64(&s.hbTime)
-			if time.Now().Unix()-ts > int64(s.hbInterval.Seconds()) {
+			if time.Now().Unix()-ts > int64(s.opt.hbInterval.Seconds()) {
 				s.Close()
 				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
 				s.logger.Log(s.context, logger.WarnLevel, fields, "session hb exception")
 				return
 			}
-			time.Sleep(s.hbInterval * 1 / 10) // 10%
+			time.Sleep(s.opt.hbInterval * 1 / 10) // 10%
 		}
 	}
 }
@@ -284,11 +301,12 @@ func (s *Session) Send(m *Msg) error {
 }
 
 func (s *Session) Close() {
-	_ = s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+	defer s.pool.Put(s)
+	_ = s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "server closed"))
 	time.Sleep(s.closeTime)
 	_ = s.wsConn.Close()
-	s.Lock()
-	defer s.Unlock()
+	s.l.Lock()
+	defer s.l.Unlock()
 	if s.isClosed {
 		return
 	}
