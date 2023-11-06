@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/trace"
 	"github.com/go-slark/slark/pkg"
 	"github.com/gorilla/websocket"
 	"net"
@@ -19,6 +21,8 @@ import (
 type Server struct {
 	*http.Server
 	handlers []middleware.HTTPMiddleware
+	before   func(w http.ResponseWriter, r *http.Request) (interface{}, error)
+	after    func(s *Session) error
 	opt      *ConnOption
 	ug       *websocket.Upgrader
 	listener net.Listener
@@ -52,6 +56,10 @@ func NewServer(opts ...ServerOption) *Server {
 		network: "tcp",
 		address: "0.0.0.0:0",
 		logger:  logger.GetLogger(),
+		after: func(s *Session) error {
+			s.Close()
+			return nil
+		},
 	}
 
 	for _, opt := range opts {
@@ -77,15 +85,49 @@ func NewServer(opts ...ServerOption) *Server {
 	return srv
 }
 
-func (s *Server) Handler(handler http.HandlerFunc) {
-	s.handler = handler
+func (s *Server) Handler(hf func(s *Session)) {
+	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		mp := map[string]interface{}{
+			"header": r.Header,
+			"params": r.URL.Query(),
+		}
+		s.logger.Log(ctx, logger.InfoLevel, mp, "ws start to establish...")
+		var (
+			err    error
+			result interface{}
+		)
+		if s.before != nil {
+			result, err = s.before(w, r)
+			if err != nil {
+				s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish suspend...")
+				return
+			}
+		}
+		session, err := s.NewSession(w, r)
+		if err != nil {
+			s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish session error")
+			return
+		}
+		s.logger.Log(ctx, logger.InfoLevel, mp, "ws establish success")
+		if result != nil {
+			session.SetCtx(result)
+		}
+		go hf(session)
+		if s.after != nil {
+			err = s.after(session)
+			if err != nil {
+				return
+			}
+		}
+	})
 }
 
 func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
-
+	s.handlers = append(s.handlers, trace.BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(s.logger)))
 	http.Handle(s.path, middleware.ComposeHTTPMiddleware(s.handler, s.handlers...))
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {
@@ -186,7 +228,7 @@ func (s *Session) read() {
 	for {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "sid": s.id}
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message timeout")
 			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
@@ -206,7 +248,7 @@ func (s *Session) read() {
 		case s.in <- m:
 			atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "sid": s.id}
 			s.logger.Log(s.context, logger.WarnLevel, fields, "session read closing")
 			return
 		}
@@ -226,19 +268,19 @@ func (s *Session) write() {
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 			err := s.wsConn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "sid": s.id}
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "write message exception")
 				return
 			}
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
+			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "sid": s.id}
 			s.logger.Log(s.context, logger.WarnLevel, fields, "session write closing")
 			return
 		case <-tk.C:
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "id": s.id}
+				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "sid": s.id}
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "write ping message exception")
 				return
 			}

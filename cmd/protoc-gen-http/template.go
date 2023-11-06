@@ -34,19 +34,19 @@ func _{{$svrType}}_{{.Name}}{{.Num}}_HTTP_Handler(srv {{$svrType}}HTTPServer) ht
 		{{- if .HasBody}}
 		err = ctx.ShouldBind(&in)
 		if err != nil {
-			return errors.BadRequest(errors.FormatError, err.Error())
+			return errors.BadRequest(err.Error(), err.Error())
 		}
 
 		{{- else if .HasQuery}}
 		err = ctx.ShouldBindQuery(&in)
 		if err != nil {
-			return errors.BadRequest(errors.FormatError, err.Error())
+			return errors.BadRequest(err.Error(), err.Error())
 		}
 
 		{{- else}}
 		err = ctx.ShouldBindURI(&in)
 		if err != nil {
-			return errors.BadRequest(errors.FormatError, err.Error())	
+			return errors.BadRequest(err.Error(), err.Error())	
 		}
 		{{- end}}
 

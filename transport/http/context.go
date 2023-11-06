@@ -22,8 +22,7 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 		c.ctx = context.Background()
 	} else {
 		c.ctx = c.req.Context()
-		headers := []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension}
-		for _, hk := range headers {
+		for _, hk := range c.router.srv.headers {
 			hv := c.req.Header.Get(hk)
 			if len(hv) == 0 {
 				continue

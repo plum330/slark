@@ -10,6 +10,7 @@ import (
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/trace"
 	"github.com/go-slark/slark/middleware/validate"
+	utils "github.com/go-slark/slark/pkg"
 	"net"
 	"net/http"
 )
@@ -26,6 +27,7 @@ type Server struct {
 	Engine   *gin.Engine
 	logger   logger.Logger
 	Codecs   *Codecs
+	headers  []string
 }
 
 type ServerOption func(server *Server)
@@ -84,6 +86,12 @@ func RspCodec(rc func(*http.Request, http.ResponseWriter, interface{}) error) Se
 	}
 }
 
+func Headers(headers []string) ServerOption {
+	return func(server *Server) {
+		server.headers = headers
+	}
+}
+
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
@@ -100,6 +108,7 @@ func NewServer(opts ...ServerOption) *Server {
 			rspEncoder:   ResponseEncoder,
 			errorEncoder: ErrorEncoder,
 		},
+		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
 	}
 	srv.Handler = srv.Engine
 	for _, o := range opts {

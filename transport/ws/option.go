@@ -3,6 +3,7 @@ package ws
 import (
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"net/http"
 	"time"
 )
 
@@ -39,6 +40,18 @@ func Path(path string) ServerOption {
 	}
 }
 
+func Before(before func(w http.ResponseWriter, r *http.Request) (interface{}, error)) ServerOption {
+	return func(s *Server) {
+		s.before = before
+	}
+}
+
+func After(after func(s *Session) error) ServerOption {
+	return func(s *Server) {
+		s.after = after
+	}
+}
+
 func ConnOpt(opts ...Option) ServerOption {
 	return func(server *Server) {
 		for _, opt := range opts {
@@ -47,7 +60,7 @@ func ConnOpt(opts ...Option) ServerOption {
 	}
 }
 
-func Handle(handlers ...middleware.HTTPMiddleware) ServerOption {
+func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
 	return func(server *Server) {
 		server.handlers = handlers
 	}
