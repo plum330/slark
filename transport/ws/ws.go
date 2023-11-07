@@ -113,8 +113,12 @@ func (s *Server) Handler(hf func(s *Session)) {
 		if result != nil {
 			session.SetCtx(result)
 		}
-		go hf(session)
+		go func(sess *Session) {
+			hf(sess)
+			sess.ch <- struct{}{}
+		}(session)
 		if s.after != nil {
+			<-session.ch
 			err = s.after(session)
 			if err != nil {
 				return
@@ -183,6 +187,7 @@ type Session struct {
 	wsConn    *websocket.Conn
 	in        chan *Msg
 	out       chan *Msg
+	ch        chan struct{}
 	closing   chan struct{}
 	isClosed  bool
 	closeTime time.Duration
@@ -199,6 +204,7 @@ func (s *Session) reset(conn *websocket.Conn, srv *Server) {
 	s.wsConn = conn
 	s.in = make(chan *Msg, srv.opt.in)
 	s.out = make(chan *Msg, srv.opt.out)
+	s.ch = make(chan struct{}, 1)
 	s.closing = make(chan struct{}, 1)
 	s.closeTime = srv.opt.closeTime
 	s.logger = srv.logger
@@ -234,7 +240,7 @@ func (s *Session) read() {
 			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
 				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message unexpected close")
 			} else {
-				s.logger.Log(s.context, logger.DebugLevel, fields, "read message close")
+				s.logger.Log(s.context, logger.WarnLevel, fields, "read message close")
 			}
 			s.Close()
 			break
