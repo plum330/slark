@@ -28,7 +28,7 @@ var CreateCmd = &cobra.Command{
 			"protoc-gen-go", "protoc-gen-go-grpc",
 			"protoc-gen-http", "protoc-gen-openapi",
 			"protoc-gen-validate", "protoc-gen-errors",
-			"wire", "statik", "yq",
+			"wire", "statik", "yq", "protoc-go-inject-tag",
 		}
 		err := find(plugins...)
 		if err != nil {
@@ -84,12 +84,16 @@ func walk(dir string) error {
 		return errors.New("dir invalid")
 	}
 
-	return filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if filepath.Ext(path) != ".proto" || strings.HasPrefix(path, "third_party") {
 			return nil
 		}
 		return create(path, dir)
 	})
+	if err != nil {
+		return err
+	}
+	return injectTag(dir)
 }
 
 var debug bool
@@ -124,4 +128,38 @@ func create(path, dir string) error {
 	fd.Stdout = os.Stdout
 	fd.Stderr = os.Stderr
 	return fd.Run()
+}
+
+func injectTag(dir string) error {
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("find %s -name *.pb.go -type f ! -name *_http.pb.go -type f ! -name *_grpc.pb.go", dir))
+	var stdOut, stdErr bytes.Buffer
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdErr
+	if debug {
+		fmt.Println(cmd.String())
+	}
+	err := cmd.Run()
+	outStr, _ := stdOut.String(), stdErr.String()
+	if err != nil {
+		fmt.Printf("find file fail, err:%+v\n", err)
+		return err
+	}
+
+	for _, file := range strings.Split(outStr, "\n") {
+		if len(file) == 0 {
+			continue
+		}
+
+		cmd = exec.Command("protoc-go-inject-tag", "-input", file)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if debug {
+			fmt.Println(cmd.String())
+		}
+		err = cmd.Run()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
