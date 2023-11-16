@@ -55,15 +55,12 @@ func WithRequestId(requestID string) Option {
 	}
 }
 
-func MustParseToken(ctx context.Context, v interface{}) {
+func ParseToken(ctx context.Context, v interface{}) error {
 	token, ok := ctx.Value(Token).(string)
 	if !ok {
-		panic(errors.TokenError)
+		return errors.BadRequest(errors.TokenError, errors.TokenError)
 	}
-	err := json.Unmarshal([]byte(token), v)
-	if err != nil {
-		panic(err)
-	}
+	return json.Unmarshal([]byte(token), v)
 }
 
 func SnakeCase(s string) string {
