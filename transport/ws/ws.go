@@ -87,29 +87,31 @@ func NewServer(opts ...ServerOption) *Server {
 
 func (s *Server) Handler(hf func(s *Session)) {
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
 		mp := map[string]interface{}{
 			"header": r.Header,
 			"params": r.URL.Query(),
 		}
-		s.logger.Log(ctx, logger.InfoLevel, mp, "ws start to establish...")
 		var (
 			err    error
 			result interface{}
 		)
+		ctx := r.Context()
 		if s.before != nil {
 			result, err = s.before(w, r)
+			ctx = r.Context()
 			if err != nil {
 				s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish suspend...")
 				return
 			}
 		}
+		s.logger.Log(ctx, logger.InfoLevel, mp, "ws start to establish...")
 		session, err := s.NewSession(w, r)
 		if err != nil {
 			s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish session error")
 			return
 		}
 		s.logger.Log(ctx, logger.InfoLevel, mp, "ws establish success")
+		session.SetContext(ctx)
 		if result != nil {
 			session.SetCtx(result)
 		}

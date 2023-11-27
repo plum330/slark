@@ -14,7 +14,6 @@ import (
 
 const (
 	ctx  = protogen.GoImportPath("context")
-	err  = protogen.GoImportPath("github.com/go-slark/slark/errors")
 	http = protogen.GoImportPath("github.com/go-slark/slark/transport/http")
 )
 
@@ -43,7 +42,6 @@ func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.
 	}
 	g.P("import (")
 	g.P(ctx)
-	g.P(err)
 	g.P(http)
 	g.P(")")
 	g.P("// This is a compile-time assertion to ensure that this generated file")
