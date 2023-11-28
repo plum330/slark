@@ -2,8 +2,7 @@ package ws
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
@@ -192,27 +191,35 @@ type Session struct {
 	ch        chan struct{}
 	closing   chan struct{}
 	isClosed  bool
+	source    string
 	closeTime time.Duration
 	logger    logger.Logger
 	pool      *sync.Pool
 	l         sync.Mutex // avoid close chan duplicated
 	opt       *ConnOption
 	hbTime    int64
+	outErr    chan error
+	inErr     chan error
 }
 
 func (s *Session) reset(conn *websocket.Conn, srv *Server) {
 	s.id = newID()
 	s.context = context.Background()
+	s.ctx = nil
 	s.wsConn = conn
 	s.in = make(chan *Msg, srv.opt.in)
 	s.out = make(chan *Msg, srv.opt.out)
 	s.ch = make(chan struct{}, 1)
 	s.closing = make(chan struct{}, 1)
+	s.isClosed = false
+	s.source = ""
 	s.closeTime = srv.opt.closeTime
 	s.logger = srv.logger
 	s.pool = srv.pool
 	s.opt = srv.opt
 	s.hbTime = time.Now().Unix()
+	s.inErr = make(chan error, 1)
+	s.outErr = make(chan error, 1)
 }
 
 func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, error) {
@@ -236,15 +243,14 @@ func (s *Session) read() {
 	for {
 		msgType, payload, err := s.wsConn.ReadMessage()
 		if err != nil {
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "sid": s.id}
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message timeout")
+				s.inErr <- errors.New(504, "read message timeout", "READ_MESSAGE_TIMEOUT").WithError(err)
 			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				s.logger.Log(s.context, logger.ErrorLevel, fields, "read message unexpected close")
+				s.inErr <- errors.InternalServer("read message unexpected close", "READ_MESSAGE_UNEXPECTED_CLOSE").WithError(err)
 			} else {
-				s.logger.Log(s.context, logger.WarnLevel, fields, "read message close")
+				s.inErr <- errors.New(100, "read message normal close", "READ_MESSAGE_NORMAL_CLOSE").WithError(err)
 			}
-			s.Close()
+			s.Close("read_close")
 			break
 		}
 		m := &Msg{
@@ -256,8 +262,7 @@ func (s *Session) read() {
 		case s.in <- m:
 			atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "sid": s.id}
-			s.logger.Log(s.context, logger.WarnLevel, fields, "session read closing")
+			s.inErr <- errors.InternalServer(s.source, s.source)
 			return
 		}
 	}
@@ -267,7 +272,7 @@ func (s *Session) write() {
 	tk := time.NewTicker(s.opt.hbInterval * 4 / 5)
 	defer func() {
 		tk.Stop()
-		s.Close()
+		s.Close("write_close")
 	}()
 
 	for {
@@ -276,20 +281,17 @@ func (s *Session) write() {
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 			err := s.wsConn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "sid": s.id}
-				s.logger.Log(s.context, logger.ErrorLevel, fields, "write message exception")
+				s.outErr <- errors.InternalServer("write message exception", "WRITE_MESSAGE_EXCEPTION").WithError(err)
 				return
 			}
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "sid": s.id}
-			s.logger.Log(s.context, logger.WarnLevel, fields, "session write closing")
+			s.outErr <- errors.InternalServer(s.source, s.source)
 			return
 		case <-tk.C:
 			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "error": fmt.Sprintf("%+v", err), "sid": s.id}
-				s.logger.Log(s.context, logger.ErrorLevel, fields, "write ping message exception")
+				s.outErr <- errors.InternalServer("write ping message exception", "WRITE_PING_MESSAGE_EXCEPTION")
 				return
 			}
 		}
@@ -314,16 +316,18 @@ func (s *Session) handleHB() {
 	for {
 		select {
 		case <-s.closing:
-			fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
-			s.logger.Log(s.context, logger.WarnLevel, fields, "session hb closing")
+			err := errors.InternalServer(s.source, s.source)
+			s.outErr <- err
+			s.inErr <- err
 			return
 
 		default:
 			ts := atomic.LoadInt64(&s.hbTime)
 			if time.Now().Unix()-ts > int64(s.opt.hbInterval.Seconds()) {
-				s.Close()
-				fields := map[string]interface{}{"context": fmt.Sprintf("%+v", s.ctx), "id": s.id}
-				s.logger.Log(s.context, logger.WarnLevel, fields, "session hb exception")
+				err := errors.InternalServer("session hb exception", "SESSION_HB_EXCEPTION")
+				s.outErr <- err
+				s.inErr <- err
+				s.Close("hb_close")
 				return
 			}
 			time.Sleep(s.opt.hbInterval * 1 / 10) // 10%
@@ -336,7 +340,7 @@ func (s *Session) Receive() (*Msg, error) {
 	case m := <-s.in:
 		return m, nil
 	case <-s.closing:
-		return nil, errors.New("conn receive is closing")
+		return nil, <-s.inErr
 	}
 }
 
@@ -345,12 +349,12 @@ func (s *Session) Send(m *Msg) error {
 	select {
 	case s.out <- m:
 	case <-s.closing:
-		err = errors.New("conn send is closing")
+		err = <-s.outErr
 	}
 	return err
 }
 
-func (s *Session) Close() {
+func (s *Session) Close(source ...string) {
 	defer s.pool.Put(s)
 	_ = s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "server closed"))
 	time.Sleep(s.closeTime)
@@ -359,6 +363,9 @@ func (s *Session) Close() {
 	defer s.l.Unlock()
 	if s.isClosed {
 		return
+	}
+	if len(source) != 0 {
+		s.source = source[0]
 	}
 	close(s.closing)
 	s.isClosed = true
