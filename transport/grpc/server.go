@@ -224,9 +224,9 @@ func ServerOpts(opts ...ServerOpt) []grpc.ServerOption {
 	o := &serverOpt{
 		maxConnectionIdle:     5 * time.Minute,
 		maxConnectionAge:      0,
-		maxConnectionAgeGrace: 0,
-		time:                  5 * time.Second,
-		timeout:               1 * time.Second,
+		maxConnectionAgeGrace: 5 * time.Second,
+		time:                  2 * time.Minute,
+		timeout:               2 * time.Second,
 		minTime:               5 * time.Second,
 		permitWithoutStream:   true,
 	}

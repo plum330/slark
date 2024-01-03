@@ -33,7 +33,7 @@ type Client struct {
 
 func NewClient(opts ...ClientOption) *Client {
 	cli := &Client{
-		ctx:     ctx{c: context.TODO(), f: nil, tm: 0},
+		ctx:     ctx{c: context.TODO(), f: nil, tm: 5 * time.Second},
 		address: "0.0.0.0:0",
 	}
 	for _, o := range opts {
@@ -175,13 +175,13 @@ func KeepaliveStream(stream bool) DialOpt {
 
 func DialOpts(opt ...DialOpt) []grpc.DialOption {
 	do := &dialOption{
-		retry:            3,
+		retry:            1,
 		retryTimeout:     time.Second * 2,
 		waitBetween:      time.Second / 2,
 		jitter:           0.2,
-		timeout:          5 * time.Second,
-		keepaliveTime:    10 * time.Second,
-		keepaliveTimeout: time.Second,
+		timeout:          15 * time.Second,
+		keepaliveTime:    2 * time.Minute,
+		keepaliveTimeout: 2 * time.Second,
 		keepaliveStream:  true,
 	}
 	for _, o := range opt {

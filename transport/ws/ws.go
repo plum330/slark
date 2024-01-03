@@ -7,7 +7,6 @@ import (
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/trace"
-	"github.com/go-slark/slark/pkg"
 	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
@@ -169,7 +168,6 @@ type ConnOption struct {
 type Msg struct {
 	Type    int
 	Payload []byte
-	ctx     context.Context
 }
 
 type Conn interface {
@@ -185,7 +183,7 @@ type Session struct {
 	id        string
 	context   context.Context
 	ctx       interface{}
-	wsConn    *websocket.Conn
+	conn      *websocket.Conn
 	in        chan *Msg
 	out       chan *Msg
 	ch        chan struct{}
@@ -206,7 +204,7 @@ func (s *Session) reset(conn *websocket.Conn, srv *Server) {
 	s.id = newID()
 	s.context = context.Background()
 	s.ctx = nil
-	s.wsConn = conn
+	s.conn = conn
 	s.in = make(chan *Msg, srv.opt.in)
 	s.out = make(chan *Msg, srv.opt.out)
 	s.ch = make(chan struct{}, 1)
@@ -237,11 +235,11 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 
 func (s *Session) read() {
 	if s.opt.rLimit > 0 {
-		s.wsConn.SetReadLimit(s.opt.rLimit)
+		s.conn.SetReadLimit(s.opt.rLimit)
 	}
-	_ = s.wsConn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
+	_ = s.conn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
 	for {
-		msgType, payload, err := s.wsConn.ReadMessage()
+		msgType, payload, err := s.conn.ReadMessage()
 		if err != nil {
 			if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				s.inErr <- errors.New(504, "read message timeout", "READ_MESSAGE_TIMEOUT").WithError(err)
@@ -256,7 +254,6 @@ func (s *Session) read() {
 		m := &Msg{
 			Type:    msgType,
 			Payload: payload,
-			ctx:     context.WithValue(context.WithValue(context.Background(), utils.RayID, utils.BuildRequestID()), utils.Token, s.context.Value(utils.Token)),
 		}
 		select {
 		case s.in <- m:
@@ -278,8 +275,8 @@ func (s *Session) write() {
 	for {
 		select {
 		case m := <-s.out:
-			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
-			err := s.wsConn.WriteMessage(m.Type, m.Payload)
+			_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+			err := s.conn.WriteMessage(m.Type, m.Payload)
 			if err != nil {
 				s.outErr <- errors.InternalServer("write message exception", "WRITE_MESSAGE_EXCEPTION").WithError(err)
 				return
@@ -288,8 +285,8 @@ func (s *Session) write() {
 			s.outErr <- errors.InternalServer(s.source, s.source)
 			return
 		case <-tk.C:
-			_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
-			err := s.wsConn.WriteMessage(websocket.PingMessage, nil)
+			_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+			err := s.conn.WriteMessage(websocket.PingMessage, nil)
 			if err != nil {
 				s.outErr <- errors.InternalServer("write ping message exception", "WRITE_PING_MESSAGE_EXCEPTION")
 				return
@@ -299,17 +296,19 @@ func (s *Session) write() {
 }
 
 func (s *Session) handleHB() {
-	s.wsConn.SetPongHandler(func(appData string) error {
-		_ = s.wsConn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
+	// SetXXHandler work base on ReadMessage()
+	s.conn.SetPongHandler(func(msg string) error {
+		_ = s.conn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
 		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 		return nil
 	})
-	s.wsConn.SetPingHandler(func(appData string) error {
-		_ = s.wsConn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+	s.conn.SetPingHandler(func(msg string) error {
+		_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
 		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
+		_ = s.conn.WriteControl(websocket.PongMessage, []byte(msg), time.Now().Add(time.Second))
 		return nil
 	})
-	s.wsConn.SetCloseHandler(func(code int, text string) error {
+	s.conn.SetCloseHandler(func(code int, text string) error {
 		return nil
 	})
 
@@ -356,9 +355,9 @@ func (s *Session) Send(m *Msg) error {
 
 func (s *Session) Close(source ...string) {
 	defer s.pool.Put(s)
-	_ = s.wsConn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "server closed"))
+	_ = s.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "server closed"), time.Now().Add(time.Second))
 	time.Sleep(s.closeTime)
-	_ = s.wsConn.Close()
+	_ = s.conn.Close()
 	s.l.Lock()
 	defer s.l.Unlock()
 	if s.isClosed {

@@ -1,8 +1,10 @@
 package ws
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-slark/slark/middleware/cors"
+	utils "github.com/go-slark/slark/pkg"
 	"net/http"
 	"testing"
 )
@@ -12,7 +14,9 @@ func TestWebsocket(t *testing.T) {
 		Address("0.0.0.0:9090"),
 		Path("/ws"),
 		Handlers(cors.CORS()),
-		Before(func(writer http.ResponseWriter, request *http.Request) (interface{}, error) {
+		Before(func(w http.ResponseWriter, r *http.Request) (interface{}, error) {
+			token, _ := r.Context().Value(utils.Token).(string)
+			*r = *r.WithContext(context.WithValue(r.Context(), utils.Token, token))
 			return nil, nil
 			//return errors.BadRequest("请求错误", "REQUEST_ERROR")
 		}),
