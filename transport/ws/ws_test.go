@@ -32,6 +32,10 @@ func TestWebsocket(t *testing.T) {
 				return
 			}
 
+			if msg == nil {
+				return
+			}
+
 			fmt.Printf("receive msg, id:%s, result:%s\n", s.ID(), msg.Payload)
 			msg.Payload = []byte(s.ID())
 			e = s.Send(msg)

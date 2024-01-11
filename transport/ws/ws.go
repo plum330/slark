@@ -39,12 +39,12 @@ func NewServer(opts ...ServerOption) *Server {
 		opt: &ConnOption{
 			in:         1000,
 			out:        1000,
-			rBuffer:    1024,
-			wBuffer:    1024,
+			rBuffer:    0,
+			wBuffer:    4096,
 			hbInterval: 60 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
-			closeTime:  500 * time.Millisecond,
+			rLimit:     51200,
 		},
 		pool: &sync.Pool{
 			New: func() interface{} {
@@ -102,13 +102,13 @@ func (s *Server) Handler(hf func(s *Session)) {
 				return
 			}
 		}
-		s.logger.Log(ctx, logger.InfoLevel, mp, "ws start to establish...")
+		s.logger.Log(ctx, logger.DebugLevel, mp, "ws start to establish...")
 		session, err := s.NewSession(w, r)
 		if err != nil {
 			s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish session error")
 			return
 		}
-		s.logger.Log(ctx, logger.InfoLevel, mp, "ws establish success")
+		s.logger.Log(ctx, logger.DebugLevel, mp, "ws establish success")
 		session.SetContext(ctx)
 		if result != nil {
 			session.SetCtx(result)
@@ -161,7 +161,6 @@ type ConnOption struct {
 	hbInterval time.Duration
 	wTime      time.Duration
 	hsTime     time.Duration
-	closeTime  time.Duration
 	rLimit     int64
 }
 
@@ -180,24 +179,21 @@ type Conn interface {
 }
 
 type Session struct {
-	id        string
-	context   context.Context
-	ctx       interface{}
-	conn      *websocket.Conn
-	in        chan *Msg
-	out       chan *Msg
-	ch        chan struct{}
-	closing   chan struct{}
-	isClosed  bool
-	source    string
-	closeTime time.Duration
-	logger    logger.Logger
-	pool      *sync.Pool
-	l         sync.Mutex // avoid close chan duplicated
-	opt       *ConnOption
-	hbTime    int64
-	outErr    chan error
-	inErr     chan error
+	id      string
+	context context.Context
+	ctx     interface{}
+	conn    *websocket.Conn
+	in      chan *Msg
+	out     chan *Msg
+	ch      chan struct{}
+	closed  atomic.Bool
+	logger  logger.Logger
+	pool    *sync.Pool
+	l       sync.Mutex
+	opt     *ConnOption
+	hbTime  int64
+	outErr  chan error
+	inErr   chan error
 }
 
 func (s *Session) reset(conn *websocket.Conn, srv *Server) {
@@ -208,16 +204,27 @@ func (s *Session) reset(conn *websocket.Conn, srv *Server) {
 	s.in = make(chan *Msg, srv.opt.in)
 	s.out = make(chan *Msg, srv.opt.out)
 	s.ch = make(chan struct{}, 1)
-	s.closing = make(chan struct{}, 1)
-	s.isClosed = false
-	s.source = ""
-	s.closeTime = srv.opt.closeTime
+	s.closed.Store(false)
+	s.l = sync.Mutex{}
 	s.logger = srv.logger
 	s.pool = srv.pool
 	s.opt = srv.opt
 	s.hbTime = time.Now().Unix()
 	s.inErr = make(chan error, 1)
 	s.outErr = make(chan error, 1)
+}
+
+func (s *Session) PingHandler() error {
+	if s.closed.Load() {
+		return nil
+	}
+	s.l.Lock()
+	defer s.l.Unlock()
+	err := s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+	if err != nil {
+		return err
+	}
+	return s.conn.WriteMessage(websocket.PongMessage, nil)
 }
 
 func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, error) {
@@ -229,73 +236,79 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 	sess.reset(ws, s)
 	go sess.read()
 	go sess.write()
-	go sess.handleHB()
 	return sess, nil
 }
 
 func (s *Session) read() {
-	if s.opt.rLimit > 0 {
-		s.conn.SetReadLimit(s.opt.rLimit)
-	}
+	defer func() {
+		if e := recover(); e != nil {
+			s.logger.Log(s.context, logger.ErrorLevel, map[string]interface{}{"error": e}, "ws read exception")
+		}
+		s.Close()
+	}()
+	s.SetHandler()
+	s.conn.SetReadLimit(s.opt.rLimit)
 	_ = s.conn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
 	for {
 		msgType, payload, err := s.conn.ReadMessage()
 		if err != nil {
-			if ne, ok := err.(net.Error); ok && ne.Timeout() {
-				s.inErr <- errors.New(504, "read message timeout", "READ_MESSAGE_TIMEOUT").WithError(err)
-			} else if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
-				s.inErr <- errors.InternalServer("read message unexpected close", "READ_MESSAGE_UNEXPECTED_CLOSE").WithError(err)
+			if !websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway) {
+				s.inErr <- nil
 			} else {
-				s.inErr <- errors.New(100, "read message normal close", "READ_MESSAGE_NORMAL_CLOSE").WithError(err)
+				s.inErr <- err
 			}
-			s.Close("read_close")
-			break
+			return
+		}
+		if s.closed.Load() {
+			return
 		}
 		m := &Msg{
 			Type:    msgType,
 			Payload: payload,
 		}
-		select {
-		case s.in <- m:
-			atomic.StoreInt64(&s.hbTime, time.Now().Unix())
-		case <-s.closing:
-			s.inErr <- errors.InternalServer(s.source, s.source)
-			return
-		}
+		s.in <- m
+		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
 	}
 }
 
 func (s *Session) write() {
 	tk := time.NewTicker(s.opt.hbInterval * 4 / 5)
 	defer func() {
+		if e := recover(); e != nil {
+			s.logger.Log(s.context, logger.ErrorLevel, map[string]interface{}{"error": e}, "ws write exception")
+		}
 		tk.Stop()
-		s.Close("write_close")
+		s.Close()
 	}()
 
+	var (
+		payload []byte
+		msgType int
+	)
 	for {
+		if s.closed.Load() {
+			return
+		}
 		select {
 		case m := <-s.out:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
-			err := s.conn.WriteMessage(m.Type, m.Payload)
-			if err != nil {
-				s.outErr <- errors.InternalServer("write message exception", "WRITE_MESSAGE_EXCEPTION").WithError(err)
-				return
-			}
-		case <-s.closing:
-			s.outErr <- errors.InternalServer(s.source, s.source)
-			return
+			msgType = m.Type
+			payload = m.Payload
 		case <-tk.C:
-			_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
-			err := s.conn.WriteMessage(websocket.PingMessage, nil)
-			if err != nil {
-				s.outErr <- errors.InternalServer("write ping message exception", "WRITE_PING_MESSAGE_EXCEPTION")
-				return
-			}
+			msgType = websocket.PingMessage
+			payload = nil
+		}
+		s.l.Lock()
+		_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+		err := s.conn.WriteMessage(msgType, payload)
+		s.l.Unlock()
+		if err != nil {
+			s.outErr <- err
+			return
 		}
 	}
 }
 
-func (s *Session) handleHB() {
+func (s *Session) SetHandler() {
 	// SetXXHandler work base on ReadMessage()
 	s.conn.SetPongHandler(func(msg string) error {
 		_ = s.conn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
@@ -303,43 +316,21 @@ func (s *Session) handleHB() {
 		return nil
 	})
 	s.conn.SetPingHandler(func(msg string) error {
-		_ = s.conn.SetWriteDeadline(time.Now().Add(s.opt.wTime))
+		_ = s.conn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
 		atomic.StoreInt64(&s.hbTime, time.Now().Unix())
-		_ = s.conn.WriteControl(websocket.PongMessage, []byte(msg), time.Now().Add(time.Second))
-		return nil
+		return s.PingHandler()
 	})
 	s.conn.SetCloseHandler(func(code int, text string) error {
 		return nil
 	})
-
-	for {
-		select {
-		case <-s.closing:
-			err := errors.InternalServer(s.source, s.source)
-			s.outErr <- err
-			s.inErr <- err
-			return
-
-		default:
-			ts := atomic.LoadInt64(&s.hbTime)
-			if time.Now().Unix()-ts > int64(s.opt.hbInterval.Seconds()) {
-				err := errors.InternalServer("session hb exception", "SESSION_HB_EXCEPTION")
-				s.outErr <- err
-				s.inErr <- err
-				s.Close("hb_close")
-				return
-			}
-			time.Sleep(s.opt.hbInterval * 1 / 10) // 10%
-		}
-	}
 }
 
 func (s *Session) Receive() (*Msg, error) {
 	select {
 	case m := <-s.in:
 		return m, nil
-	case <-s.closing:
-		return nil, <-s.inErr
+	case err := <-s.inErr:
+		return nil, err
 	}
 }
 
@@ -347,27 +338,21 @@ func (s *Session) Send(m *Msg) error {
 	var err error
 	select {
 	case s.out <- m:
-	case <-s.closing:
-		err = <-s.outErr
+	case err = <-s.outErr:
 	}
 	return err
 }
 
-func (s *Session) Close(source ...string) {
+func (s *Session) Close() {
 	defer s.pool.Put(s)
-	_ = s.conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "server closed"), time.Now().Add(time.Second))
-	time.Sleep(s.closeTime)
-	_ = s.conn.Close()
-	s.l.Lock()
-	defer s.l.Unlock()
-	if s.isClosed {
+	if s.closed.Load() {
 		return
 	}
-	if len(source) != 0 {
-		s.source = source[0]
-	}
-	close(s.closing)
-	s.isClosed = true
+	s.closed.Store(true)
+	s.l.Lock()
+	_ = s.conn.WriteMessage(websocket.CloseMessage, nil)
+	s.l.Unlock()
+	_ = s.conn.Close()
 }
 
 func (s *Session) SetContext(ctx context.Context) {
