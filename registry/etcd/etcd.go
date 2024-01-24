@@ -14,6 +14,7 @@ import (
 type Registry struct {
 	client *clientv3.Client
 	lease  clientv3.Lease
+	kv     clientv3.KV
 	opt    *option
 }
 
@@ -34,6 +35,7 @@ func NewRegistry(cfg clientv3.Config, opts ...Option) *Registry {
 	}
 	return &Registry{
 		client: client,
+		kv:     clientv3.NewKV(client),
 		opt:    opt,
 	}
 }
@@ -138,6 +140,27 @@ func (r *Registry) Unregister(ctx context.Context, svc *registry.Service) error 
 		_ = r.lease.Close()
 	}
 	return err
+}
+
+func (r *Registry) Service(ctx context.Context, name string) ([]*registry.Service, error) {
+	rsp, err := r.kv.Get(ctx, fmt.Sprintf("%s/%s", r.opt.ns, name), clientv3.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
+
+	svc := make([]*registry.Service, 0, len(rsp.Kvs))
+	for _, kv := range rsp.Kvs {
+		s := &registry.Service{}
+		err = json.Unmarshal(kv.Value, s)
+		if err != nil {
+			return nil, err
+		}
+		if s.Name != name {
+			continue
+		}
+		svc = append(svc, s)
+	}
+	return svc, nil
 }
 
 func (r *Registry) Discover(ctx context.Context, name string) (registry.Watcher, error) {

@@ -37,11 +37,11 @@ func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		Server: &http.Server{},
 		opt: &ConnOption{
-			in:         1000,
-			out:        1000,
+			in:         1024,
+			out:        1024,
 			rBuffer:    0,
 			wBuffer:    4096,
-			hbInterval: 60 * time.Second,
+			hbInterval: 30 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
 			rLimit:     51200,

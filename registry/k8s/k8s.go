@@ -17,8 +17,9 @@ import (
 )
 
 type Registry struct {
-	interval time.Duration
-	token    string
+	clientSet *kubernetes.Clientset
+	interval  time.Duration
+	token     string
 }
 
 type Option func(*Registry)
@@ -42,6 +43,18 @@ func NewRegistry(opts ...Option) *Registry {
 	for _, opt := range opts {
 		opt(r)
 	}
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err)
+	}
+	config.TLSClientConfig = rest.TLSClientConfig{Insecure: true}
+	config.BearerToken = r.token
+	config.BearerTokenFile = ""
+	cs, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+	r.clientSet = cs
 	return r
 }
 
@@ -55,7 +68,7 @@ func (r *Registry) Unregister(ctx context.Context, svc *registry.Service) error 
 
 // name(k8s集群中的服务地址) : service-name.namespace.svc.cluster_name:8080
 
-func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, error) {
+func parse(name string) ([]string, int, error) {
 	str := strings.FieldsFunc(name, func(r rune) bool {
 		return r == ':'
 	})
@@ -66,30 +79,67 @@ func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, e
 	if len(str) == 2 {
 		port, err = strconv.Atoi(str[1])
 		if err != nil {
-			return nil, err
+			return nil, port, err
 		}
 	}
-
 	str = strings.FieldsFunc(name, func(r rune) bool {
 		return r == '.'
 	})
 	if len(str) < 2 {
-		return nil, errors.InternalServer("k8s target url path invalid", "K8S_TARGET_URL_PATH_INVALID")
+		return nil, port, errors.InternalServer("k8s target url path invalid", "K8S_TARGET_URL_PATH_INVALID")
+	}
+	return str, port, nil
+}
+
+func service(endpoints *coreV1.Endpoints, port int) []*registry.Service {
+	svc := make([]*registry.Service, 0, len(endpoints.Subsets))
+	// meta.name --> len(endpoints.Subsets) == 1
+	for _, set := range endpoints.Subsets {
+		if len(set.Ports) == 0 {
+			break
+		}
+		if port == 0 {
+			port = int(set.Ports[0].Port)
+		}
+		for _, addr := range set.Addresses {
+			s := &registry.Service{
+				Name:     endpoints.Name,
+				Version:  endpoints.ResourceVersion,
+				Endpoint: fmt.Sprintf("%s:%d", addr.IP, port),
+			}
+			if addr.TargetRef != nil {
+				s.ID = string(addr.TargetRef.UID)
+			}
+			svc = append(svc, s)
+		}
+	}
+	return svc
+}
+
+func (r *Registry) Service(ctx context.Context, name string) ([]*registry.Service, error) {
+	str, port, err := parse(name)
+	if err != nil {
+		return nil, err
+	}
+	endpoints, err := r.clientSet.CoreV1().Endpoints(str[1]).Get(context.Background(), str[0], metaV1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return service(endpoints, port), nil
+}
+
+func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, error) {
+	str, port, err := parse(name)
+	if err != nil {
+		return nil, err
 	}
 	name = str[0]
 	ns := str[1]
-	config, err := rest.InClusterConfig()
+
 	if err != nil {
 		return nil, err
 	}
-	config.TLSClientConfig = rest.TLSClientConfig{Insecure: true}
-	config.BearerToken = r.token
-	config.BearerTokenFile = ""
-	cs, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-	inf := informers.NewSharedInformerFactoryWithOptions(cs, r.interval,
+	inf := informers.NewSharedInformerFactoryWithOptions(r.clientSet, r.interval,
 		informers.WithNamespace(ns),
 		informers.WithTweakListOptions(func(options *metaV1.ListOptions) {
 			options.FieldSelector = "metadata.name=" + name
@@ -131,7 +181,7 @@ func (r *Registry) Discover(_ context.Context, name string) (registry.Watcher, e
 	}
 	go inf.Start(context.Background().Done())
 	w := &watcher{
-		clientSet: cs,
+		clientSet: r.clientSet,
 		notify:    notify,
 		ns:        ns,
 		name:      name,
@@ -154,28 +204,7 @@ func (w *watcher) List() ([]*registry.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	svc := make([]*registry.Service, 0, len(endpoints.Subsets))
-	// meta.name --> len(endpoints.Subsets) == 1
-	for _, set := range endpoints.Subsets {
-		if len(set.Ports) == 0 {
-			break
-		}
-		if w.port == 0 {
-			w.port = int(set.Ports[0].Port)
-		}
-		for _, addr := range set.Addresses {
-			s := &registry.Service{
-				Name:     endpoints.Name,
-				Version:  endpoints.ResourceVersion,
-				Endpoint: fmt.Sprintf("%s:%d", addr.IP, w.port),
-			}
-			if addr.TargetRef != nil {
-				s.ID = string(addr.TargetRef.UID)
-			}
-			svc = append(svc, s)
-		}
-	}
-	return svc, nil
+	return service(endpoints, w.port), nil
 }
 
 func (w *watcher) Stop() error {

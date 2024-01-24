@@ -15,6 +15,7 @@ type Registry interface {
 }
 
 type Discovery interface {
+	Service(ctx context.Context, name string) ([]*Service, error)
 	Discover(ctx context.Context, name string) (Watcher, error)
 }
 
