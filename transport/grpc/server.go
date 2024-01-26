@@ -50,7 +50,7 @@ func NewServer(opts ...ServerOption) *Server {
 	srv.mw = append(srv.mw, validate.Validate(), recovery.Recovery(srv.logger))
 
 	var grpcOpts []grpc.ServerOption
-	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
+	srv.unary = append(srv.unary, srv.interceptor())
 	if len(srv.unary) > 0 {
 		grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(srv.unary...))
 	}

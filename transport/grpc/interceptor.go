@@ -16,9 +16,7 @@ import (
 	"time"
 )
 
-// server
-
-func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
+func (s *Server) interceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp interface{}, err error) {
 		ctx = context.WithValue(ctx, utils.Method, info.FullMethod)
 		return middleware.ComposeMiddleware(s.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -109,14 +107,21 @@ func UnaryServerAuthorize() middleware.Middleware {
 	}
 }
 
-// client
+func (o *option) interceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		ctx = context.WithValue(ctx, utils.Target, map[string]string{method: cc.Target()})
+		_, err := middleware.ComposeMiddleware(o.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return reply, invoker(ctx, method, req, reply, cc, opts...)
+		})(ctx, req)
+		return err
+	}
+}
 
-func UnaryClientTimeout(defaultTime time.Duration) grpc.UnaryClientInterceptor {
+func UnaryClientTimeout(time time.Duration) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		var cancel context.CancelFunc
-		if _, ok := ctx.Deadline(); !ok {
-			defaultTimeout := defaultTime
-			ctx, cancel = context.WithTimeout(ctx, defaultTimeout)
+		if _, ok := ctx.Deadline(); !ok && time > 0 {
+			ctx, cancel = context.WithTimeout(ctx, time)
 		}
 		if cancel != nil {
 			defer cancel()
@@ -144,15 +149,5 @@ func UnaryClientAuthorize() grpc.UnaryClientInterceptor {
 			ctx = metadata.AppendToOutgoingContext(ctx, utils.Token, strconv.QuoteToASCII(token))
 		}
 		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-}
-
-func (c *Client) unaryClientInterceptor() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = context.WithValue(ctx, utils.Target, map[string]string{method: cc.Target()})
-		_, err := middleware.ComposeMiddleware(c.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return reply, invoker(ctx, method, req, reply, cc, opts...)
-		})(ctx, req)
-		return err
 	}
 }

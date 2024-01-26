@@ -1,9 +1,8 @@
 package grpc
 
 import (
-	"github.com/go-slark/slark/errors"
 	"google.golang.org/grpc"
-	"os"
+	"time"
 )
 
 // GRPC Server
@@ -27,32 +26,37 @@ func (r *RegisterObjSet) NewGRPCServer(opts ...ServerOption) *Server {
 
 // GRPC Client
 
-type GRPCClient struct {
+type Client struct {
 	clients map[string]*grpc.ClientConn
 }
 
 type ClientObj struct {
-	Name string
-	Addr string
+	Name   string
+	Addr   string
+	Timout time.Duration
 }
 
-func NewGRPCClient(objs []*ClientObj, opt []grpc.DialOption, opts ...ClientOption) *GRPCClient {
+func NewClient(objs []*ClientObj, opts ...Option) *Client {
 	clients := make(map[string]*grpc.ClientConn, len(objs))
 	for _, obj := range objs {
-		client := NewClient(append(append(append([]ClientOption{}, WithAddr(obj.Addr)), ClientOptions(opt)), opts...)...)
-		if client.err != nil {
-			os.Exit(errors.ClientClosed)
+		if obj.Timout == 0 {
+			obj.Timout = 5 * time.Second
 		}
-		clients[obj.Name] = client.ClientConn
+		opts = append(opts, WithAddr(obj.Addr), WithUnaryInterceptor([]grpc.UnaryClientInterceptor{UnaryClientTimeout(obj.Timout)}))
+		client, err := Dial(opts...)
+		if err != nil {
+			panic(err)
+		}
+		clients[obj.Name] = client
 	}
-	return &GRPCClient{clients: clients}
+	return &Client{clients: clients}
 }
 
-func (c *GRPCClient) GetGRPCClient(name string) *grpc.ClientConn {
+func (c *Client) GetGRPCClient(name string) *grpc.ClientConn {
 	return c.clients[name]
 }
 
-func (c *GRPCClient) Stop() {
+func (c *Client) Stop() {
 	for _, client := range c.clients {
 		_ = client.Close()
 	}
