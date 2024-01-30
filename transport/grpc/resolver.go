@@ -26,7 +26,7 @@ func (p *parser) Close() {
 	_ = p.watcher.Stop()
 }
 
-func (p *parser) start() {
+func (p *parser) watch() {
 	for {
 		select {
 		case <-p.ctx.Done():

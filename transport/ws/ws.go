@@ -41,7 +41,7 @@ func NewServer(opts ...ServerOption) *Server {
 			out:        1024,
 			rBuffer:    0,
 			wBuffer:    4096,
-			hbInterval: 30 * time.Second,
+			hbInterval: 20 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
 			rLimit:     51200,

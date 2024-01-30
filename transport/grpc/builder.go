@@ -53,7 +53,7 @@ func (b *builder) Build(target resolver.Target, cc resolver.ClientConn, opts res
 		cc:      cc,
 		ctx:     cx,
 	}
-	go p.start()
+	go p.watch()
 	return p, nil
 }
 

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis"
 	"github.com/go-slark/slark/logger"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/time/rate"
 	"strconv"
 	"sync"
@@ -86,7 +86,7 @@ func (l *TBLimiter) reserveN(ctx context.Context, now time.Time, n int) bool {
 		strconv.FormatInt(now.Unix(), 10),
 		strconv.Itoa(n),
 	}
-	result, err := redis.NewScript(script).Run(l.redis, keys, args).Result()
+	result, err := redis.NewScript(script).Run(ctx, l.redis, keys, args).Result()
 	if err == redis.Nil {
 		return false
 	}
@@ -134,7 +134,7 @@ func (l *TBLimiter) health() {
 
 	for range tk.C {
 		var ping bool
-		result, err := l.redis.Ping().Result()
+		result, err := l.redis.Ping(context.TODO()).Result()
 		if err != nil {
 			ping = false
 		} else {

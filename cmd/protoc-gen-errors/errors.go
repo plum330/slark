@@ -23,10 +23,10 @@ const (
 	maxErrCode = 599
 )
 
-var enCases = cases.Title(language.AmericanEnglish, cases.NoLower)
-
-// generateFile generates a _errors.pb.go file containing kratos errors definitions.
 func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.GeneratedFile {
+	if !strings.Contains(file.Desc.Path(), "_errors.proto") {
+		return nil
+	}
 	if len(file.Enums) == 0 {
 		return nil
 	}
@@ -41,14 +41,13 @@ func generateFile(gen *protogen.Plugin, file *protogen.File) *protogen.Generated
 	return g
 }
 
-// generateFileContent generates the kratos errors definitions, excluding the package statement.
 func generateFileContent(gen *protogen.Plugin, file *protogen.File, g *protogen.GeneratedFile) {
 	if len(file.Enums) == 0 {
 		return
 	}
 
 	g.P("// This is a compile-time assertion to ensure that this generated file")
-	g.P("// is compatible with the kratos package it is being compiled against.")
+	g.P("// is compatible with the slark package it is being compiled against.")
 	g.P("const _ = ", errorsPackage.Ident("SupportPackageIsVersion1"))
 	g.P()
 	index := 0
@@ -110,6 +109,8 @@ func genErrorsReason(gen *protogen.Plugin, file *protogen.File, g *protogen.Gene
 
 	return false
 }
+
+var enCases = cases.Title(language.AmericanEnglish, cases.NoLower)
 
 func case2Camel(name string) string {
 	if !strings.Contains(name, "_") {
