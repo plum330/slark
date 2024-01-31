@@ -20,6 +20,7 @@ type App struct {
 	registry registry.Registry
 	name     string
 	version  string
+	metadata map[string]interface{}
 }
 
 type Option func(*App)
@@ -51,6 +52,12 @@ func Name(name string) Option {
 func Version(ver string) Option {
 	return func(app *App) {
 		app.version = ver
+	}
+}
+
+func Metadata(md map[string]interface{}) Option {
+	return func(app *App) {
+		app.metadata = md
 	}
 }
 
@@ -126,6 +133,7 @@ func (a *App) service() (*registry.Service, error) {
 		Name:     a.name,
 		Version:  a.version,
 		Endpoint: u.String(),
+		Metadata: a.metadata,
 	}
 	return svc, nil
 }

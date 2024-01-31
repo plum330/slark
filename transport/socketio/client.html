@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="zh-cn">
+    <body>
+        <script src="https://cdn.socket.io/socket.io-1.2.0.js"></script>
+        <script>
+            socket = io("ws://localhost:8089");
+            socket.on("/msg", (arg)=> {
+                console.log("receive:", arg)
+            })
+        </script>
+    </body>
+</html>

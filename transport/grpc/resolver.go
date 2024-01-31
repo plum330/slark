@@ -5,6 +5,7 @@ import (
 	"github.com/go-slark/slark/errors"
 	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
+	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
 	"net/url"
 	"time"
@@ -60,8 +61,9 @@ func (p *parser) update(svc []*registry.Service) {
 		}
 		addr := resolver.Address{
 			ServerName: s.Name,
-			//Attributes 字段可以用来保存负载均衡策略所使用的信息，比如权重信息
-			Addr: address,
+			//BalancerAttributes 字段可以用来保存负载均衡策略所使用的信息，比如权重信息
+			BalancerAttributes: attributes.New("attributes", s),
+			Addr:               address,
 		}
 		addresses = append(addresses, addr)
 	}

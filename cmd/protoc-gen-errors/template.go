@@ -44,7 +44,7 @@ func (e *errorWrapper) execute() string {
 	if err != nil {
 		panic(err)
 	}
-	if err := tmpl.Execute(buf, e); err != nil {
+	if err = tmpl.Execute(buf, e); err != nil {
 		panic(err)
 	}
 	return buf.String()

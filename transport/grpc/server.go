@@ -233,7 +233,7 @@ func ServerOpts(opts ...ServerOpt) []grpc.ServerOption {
 	for _, opt := range opts {
 		opt(o)
 	}
-	option := []grpc.ServerOption{
+	opt := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			MaxConnectionIdle:     o.maxConnectionIdle,
 			MaxConnectionAge:      o.maxConnectionAge,
@@ -246,5 +246,5 @@ func ServerOpts(opts ...ServerOpt) []grpc.ServerOption {
 			PermitWithoutStream: o.permitWithoutStream,
 		}),
 	}
-	return option
+	return opt
 }

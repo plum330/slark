@@ -54,7 +54,7 @@ func NewServer(opts ...Option) *Server {
 		logger:  logger.GetLogger(),
 		network: "tcp",
 		address: "0.0.0.0:0",
-		path:    "/socket.io",
+		path:    "/socket.io/",
 	}
 	for _, opt := range opts {
 		opt(srv)

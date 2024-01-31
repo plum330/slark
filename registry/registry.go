@@ -3,10 +3,11 @@ package registry
 import "context"
 
 type Service struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Version  string `json:"version"`
-	Endpoint string `json:"endpoint"`
+	ID       string                 `json:"id"`
+	Name     string                 `json:"name"`
+	Version  string                 `json:"version"`
+	Endpoint string                 `json:"endpoint"`
+	Metadata map[string]interface{} `json:"metadata"`
 }
 
 type Registry interface {
