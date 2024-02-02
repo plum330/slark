@@ -3,6 +3,7 @@ package grpc
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc"
@@ -106,8 +107,8 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 		addr: "0.0.0.0:0",
 		strategy: []Strategy{
 			{
-				Name:  "LoadBalancingPolicy",
-				Value: "round_robin",
+				Name:  fmt.Sprintf(`"%s"`, "loadBalancingConfig"),
+				Value: `[ {"round_robin": {} } ]`,
 			},
 		},
 		insecure: true,
@@ -145,7 +146,7 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 
 	if len(opt.strategy) > 0 {
 		var buf bytes.Buffer
-		buf.WriteString("`{")
+		buf.WriteString("{")
 		for index, s := range opt.strategy {
 			buf.WriteString(s.Name)
 			buf.WriteString(":")
@@ -154,7 +155,7 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 				buf.WriteString(",")
 			}
 		}
-		buf.WriteString("}`")
+		buf.WriteString("}")
 		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(buf.String()))
 	}
 
