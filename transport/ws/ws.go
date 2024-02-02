@@ -8,6 +8,7 @@ import (
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/trace"
 	"github.com/gorilla/websocket"
+	"github.com/rs/xid"
 	"net"
 	"net/http"
 	"strconv"
@@ -21,7 +22,7 @@ type Server struct {
 	handlers []middleware.HTTPMiddleware
 	before   func(w http.ResponseWriter, r *http.Request) (interface{}, error)
 	after    func(s *Session) error
-	opt      *ConnOption
+	opt      *SessionOption
 	ug       *websocket.Upgrader
 	listener net.Listener
 	handler  http.Handler
@@ -36,7 +37,8 @@ type Server struct {
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		Server: &http.Server{},
-		opt: &ConnOption{
+		opt: &SessionOption{
+			ID:         &gid{},
 			in:         1024,
 			out:        1024,
 			rBuffer:    0,
@@ -153,7 +155,8 @@ func (s *Server) listen() error {
 	return nil
 }
 
-type ConnOption struct {
+type SessionOption struct {
+	ID
 	in         int
 	out        int
 	rBuffer    int
@@ -190,14 +193,14 @@ type Session struct {
 	logger  logger.Logger
 	pool    *sync.Pool
 	l       sync.Mutex
-	opt     *ConnOption
+	opt     *SessionOption
 	hbTime  int64
 	outErr  chan error
 	inErr   chan error
 }
 
 func (s *Session) reset(conn *websocket.Conn, srv *Server) {
-	s.id = newID()
+	s.id = srv.opt.NewID()
 	s.context = context.Background()
 	s.ctx = nil
 	s.conn = conn
@@ -375,10 +378,22 @@ func (s *Session) ID() string {
 	return s.id
 }
 
-var connID uint64
+type ID interface {
+	NewID() string
+}
 
-func newID() string {
-	id := atomic.AddUint64(&connID, 1)
+type XID struct{}
+
+func (x *XID) NewID() string {
+	return xid.New().String()
+}
+
+type gid struct {
+	id uint64
+}
+
+func (g *gid) NewID() string {
+	id := atomic.AddUint64(&g.id, 1)
 	return strconv.FormatUint(id, 36)
 }
 

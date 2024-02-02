@@ -15,7 +15,7 @@ func Logger(l logger.Logger) ServerOption {
 	}
 }
 
-func WithNetwork(network string) ServerOption {
+func Network(network string) ServerOption {
 	return func(s *Server) {
 		s.network = network
 	}
@@ -66,53 +66,58 @@ func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
 	}
 }
 
-type Option func(opt *ConnOption)
+type Option func(opt *SessionOption)
 
-func WithIn(in int) Option {
-	return func(opt *ConnOption) {
+func IDBuilder(id ID) Option {
+	return func(opt *SessionOption) {
+		opt.ID = id
+	}
+}
+
+func In(in int) Option {
+	return func(opt *SessionOption) {
 		opt.in = in
 	}
 }
 
-func WithOut(out int) Option {
-	return func(opt *ConnOption) {
+func Out(out int) Option {
+	return func(opt *SessionOption) {
 		opt.out = out
 	}
 }
 
-func WithHBInterval(hbInterval time.Duration) Option {
-	return func(opt *ConnOption) {
+func HBInterval(hbInterval time.Duration) Option {
+	return func(opt *SessionOption) {
 		opt.hbInterval = hbInterval
 	}
 }
 
-func WithReadBuffer(rb int) Option {
-	return func(opt *ConnOption) {
+func ReadBuffer(rb int) Option {
+	return func(opt *SessionOption) {
 		opt.rBuffer = rb
 	}
 }
 
-func WithWriteBuffer(wb int) Option {
-	return func(opt *ConnOption) {
+func WriteBuffer(wb int) Option {
+	return func(opt *SessionOption) {
 		opt.wBuffer = wb
 	}
 }
 
-func WithWriteTime(wt time.Duration) Option {
-	return func(opt *ConnOption) {
+func WriteTime(wt time.Duration) Option {
+	return func(opt *SessionOption) {
 		opt.wTime = wt
 	}
 }
 
-func WithHandShakeTime(hst time.Duration) Option {
-	return func(opt *ConnOption) {
+func HandShakeTime(hst time.Duration) Option {
+	return func(opt *SessionOption) {
 		opt.hsTime = hst
 	}
 }
 
-func WithReadLimit(rLimit int64) Option {
-	return func(opt *ConnOption) {
+func ReadLimit(rLimit int64) Option {
+	return func(opt *SessionOption) {
 		opt.rLimit = rLimit
 	}
 }
-
