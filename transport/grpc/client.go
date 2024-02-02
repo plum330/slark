@@ -110,6 +110,7 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 				Value: "round_robin",
 			},
 		},
+		insecure: true,
 	}
 	for _, o := range opts {
 		o(opt)

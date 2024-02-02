@@ -104,11 +104,13 @@ func (s *Server) Stop(_ context.Context) error {
 
 // tips: different namespace can represent different biz
 
-func (s *Server) OnConnect(namespace string, f func(conn socketio.Conn) error) {
+type Conn = socketio.Conn
+
+func (s *Server) OnConnect(namespace string, f func(Conn) error) {
 	s.Server.OnConnect(namespace, f)
 }
 
-func (s *Server) OnDisconnect(namespace string, f func(socketio.Conn, string)) {
+func (s *Server) OnDisconnect(namespace string, f func(Conn, string)) {
 	s.Server.OnDisconnect(namespace, f)
 }
 
@@ -116,6 +118,6 @@ func (s *Server) OnEvent(namespace, event string, f interface{}) {
 	s.Server.OnEvent(namespace, event, f)
 }
 
-func (s *Server) OnError(namespace string, f func(socketio.Conn, error)) {
+func (s *Server) OnError(namespace string, f func(Conn, error)) {
 	s.Server.OnError(namespace, f)
 }

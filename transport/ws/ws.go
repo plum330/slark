@@ -381,3 +381,11 @@ func newID() string {
 	id := atomic.AddUint64(&connID, 1)
 	return strconv.FormatUint(id, 36)
 }
+
+const (
+	TextMessage   = websocket.TextMessage
+	BinaryMessage = websocket.BinaryMessage
+	CloseMessage  = websocket.CloseMessage
+	PingMessage   = websocket.PingMessage
+	PongMessage   = websocket.PongMessage
+)
