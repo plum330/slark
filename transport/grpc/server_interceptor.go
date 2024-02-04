@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/pkg"
+	utils "github.com/go-slark/slark/pkg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -107,47 +107,20 @@ func UnaryServerAuthorize() middleware.Middleware {
 	}
 }
 
-func (o *option) interceptor() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		ctx = context.WithValue(ctx, utils.Target, map[string]string{method: cc.Target()})
-		_, err := middleware.ComposeMiddleware(o.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
-			return reply, invoker(ctx, method, req, reply, cc, opts...)
-		})(ctx, req)
-		return err
-	}
-}
-
-func UnaryClientTimeout(time time.Duration) grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		var cancel context.CancelFunc
-		if _, ok := ctx.Deadline(); !ok && time > 0 {
-			ctx, cancel = context.WithTimeout(ctx, time)
-		}
-		if cancel != nil {
-			defer cancel()
-		}
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-}
-
-func UnaryClientTrace() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, resp interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) (err error) {
-		value := ctx.Value(utils.RayID)
-		requestID, ok := value.(string)
-		if !ok || len(requestID) == 0 {
-			requestID = utils.BuildRequestID()
-		}
-		ctx = metadata.AppendToOutgoingContext(ctx, utils.RayID, requestID)
-		return invoker(ctx, method, req, resp, cc, opts...)
-	}
-}
-
-func UnaryClientAuthorize() grpc.UnaryClientInterceptor {
-	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		token, ok := ctx.Value(utils.Token).(string)
-		if ok {
-			ctx = metadata.AppendToOutgoingContext(ctx, utils.Token, strconv.QuoteToASCII(token))
-		}
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
-}
+//func ServerTrace(opts ...tracing.Option) middleware.Middleware {
+//	tracer := tracing.NewTracing(trace.SpanKindServer, opts...)
+//	return func(handler middleware.Handler) middleware.Handler {
+//		return func(ctx context.Context, req interface{}) (rsp interface{}, err error) {
+//			md, ok := metadata.FromIncomingContext(ctx)
+//			if !ok {
+//				md = metadata.MD{}
+//			}
+//			name, _ := ctx.Value(utils.Method).(string)
+//			//name, attr := SpanInfo(name, parseAddr(ctx))
+//			ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: md}, trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(attr...))
+//			//defer tracer.Stop(ctx, span, rsp, err)
+//			defer span.End()
+//			return handler(ctx, req)
+//		}
+//	}
+//}

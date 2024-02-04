@@ -3,19 +3,18 @@ package main
 import (
 	"flag"
 	"fmt"
+	cm "github.com/go-slark/slark/cmd"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/types/pluginpb"
 )
-
-const release = "v1.4.2"
 
 var showVersion = flag.Bool("version", false, "print the version and exit")
 
 func main() {
 	flag.Parse()
 	if *showVersion {
-		fmt.Printf("protoc-gen-go-errors %v\n", release)
+		fmt.Printf("protoc-gen-go-errors %v\n", cm.Version)
 		return
 	}
 	var flags flag.FlagSet

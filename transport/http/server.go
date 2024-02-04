@@ -8,9 +8,9 @@ import (
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/recovery"
-	"github.com/go-slark/slark/middleware/trace"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/transport/http/handler"
 	"net"
 	"net/http"
 )
@@ -18,7 +18,7 @@ import (
 type Server struct {
 	*http.Server
 	listener net.Listener
-	handlers []middleware.HTTPMiddleware // cors...
+	handlers []handler.Middleware
 	mws      []middleware.Middleware
 	err      error
 	network  string
@@ -50,7 +50,7 @@ func Handler(handler http.Handler) ServerOption {
 	}
 }
 
-func Handlers(handlers ...middleware.HTTPMiddleware) ServerOption {
+func Handlers(handlers ...handler.Middleware) ServerOption {
 	return func(server *Server) {
 		server.handlers = handlers
 	}
@@ -114,9 +114,9 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate())
-	srv.handlers = append(srv.handlers, trace.BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(srv.logger)))
-	srv.Handler = middleware.ComposeHTTPMiddleware(srv.Handler, srv.handlers...)
+	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate(), recovery.Recovery(srv.logger))
+	srv.handlers = append(srv.handlers, handler.BuildRequestID())
+	srv.Handler = handler.WrapMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
 }

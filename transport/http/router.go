@@ -36,7 +36,6 @@ func (r *Router) Handle(method, path string, hf HandlerFunc) {
 		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx.Request.Context(), utils.RequestVars, mp))
 		c := r.pool.Get().(*Context)
 		c.Set(ctx.Request, ctx.Writer)
-		c.SetMethod(method, path)
 		if err := hf(c); err != nil {
 			r.srv.Codecs.errorEncoder(ctx.Request, ctx.Writer, err)
 		}

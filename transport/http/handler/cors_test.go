@@ -1,4 +1,4 @@
-package cors
+package handler
 
 import (
 	"net/http"

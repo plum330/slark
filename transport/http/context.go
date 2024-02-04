@@ -2,7 +2,6 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
 	"net/http"
@@ -18,22 +17,19 @@ type Context struct {
 func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	c.req = req
 	c.rsp = rsp
-	if c.req == nil {
-		c.ctx = context.Background()
-	} else {
-		c.ctx = c.req.Context()
-		for _, hk := range c.router.srv.headers {
-			hv := c.req.Header.Get(hk)
-			if len(hv) == 0 {
-				continue
-			}
-			c.ctx = context.WithValue(c.ctx, hk, hv)
-		}
+	if c.req == nil || rsp == nil {
+		return
 	}
-}
-
-func (c *Context) SetMethod(method, path string) {
-	c.ctx = context.WithValue(c.ctx, utils.Method, fmt.Sprintf("%s:%s", method, path))
+	c.ctx = c.req.Context()
+	for _, hk := range c.router.srv.headers {
+		hv := c.req.Header.Get(hk)
+		if len(hv) == 0 {
+			continue
+		}
+		c.ctx = context.WithValue(c.ctx, hk, hv)
+	}
+	c.ctx = context.WithValue(c.ctx, utils.Method, req.Method)
+	c.ctx = context.WithValue(c.ctx, utils.Path, req.URL.Path)
 }
 
 func (c *Context) Context() context.Context {

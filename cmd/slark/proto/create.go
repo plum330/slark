@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	cm "github.com/go-slark/slark/cmd"
 	"github.com/spf13/cobra"
 	"os"
 	"os/exec"
@@ -11,8 +12,6 @@ import (
 	"regexp"
 	"strings"
 )
-
-const release = "v1.4.2"
 
 var CreateCmd = &cobra.Command{
 	Use:   "create",
@@ -47,9 +46,9 @@ var CreateCmd = &cobra.Command{
 				return
 			}
 			version := strings.TrimSpace(strings.Split(out.String(), " ")[1])
-			fmt.Printf("history version:%s\ncurrent version:%s\n", version, release)
+			fmt.Printf("history version:%s\ncurrent version:%s\n", version, cm.Version)
 
-			if strings.Compare(version, release) != 0 {
+			if strings.Compare(version, cm.Version) != 0 {
 				cmd := exec.Command("slark", "install")
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr

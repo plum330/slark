@@ -2,151 +2,98 @@ package trace
 
 import (
 	"context"
-	"github.com/go-slark/slark/errors"
-	"github.com/go-slark/slark/middleware"
-	utils "github.com/go-slark/slark/pkg"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/semconv/v1.17.0/httpconv"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc/metadata"
-	"google.golang.org/protobuf/proto"
-	"net/http"
 )
 
-type TracerOption struct {
+// 跟踪服务调用关系
+// tracer表示一次完整的链路跟踪,tracer由一个/多个span(链路跟踪基本组成要素,表示一次函数调用/http请求开始和节数，以及调用的服务名,方法名,参数,异常等)组成,将span发送到跟踪系统
+// TracerProvider 用于创建tracer,一般是需要第三方的分布式链路跟踪管理平台提供具体的实现(zipkin,jaeger...),默认NoopTracerProvider虽然也能创建Tracer但是内部不会执行具体的数据流传输逻辑。
+// TextMapPropagator传播器用于端对端数据编解码
+
+type Tracing struct {
 	provider   trace.TracerProvider
 	propagator propagation.TextMapPropagator
+	tracer     trace.Tracer
+	kind       trace.SpanKind
 	name       string
 }
 
-type Option func(option *TracerOption)
+type Option func(option *Tracing)
 
 func Name(name string) Option {
-	return func(option *TracerOption) {
+	return func(option *Tracing) {
 		option.name = name
 	}
 }
 
 func Provider(provider trace.TracerProvider) Option {
-	return func(option *TracerOption) {
+	return func(option *Tracing) {
 		option.provider = provider
 	}
 }
 
 func Propagator(propagator propagation.TextMapPropagator) Option {
-	return func(option *TracerOption) {
+	return func(option *Tracing) {
 		option.propagator = propagator
 	}
 }
 
-type Tracer struct {
-	tracer trace.Tracer
-	opt    *TracerOption
-	kind   trace.SpanKind
-}
+// propagation.Baggage保存链路跟踪过程中跨服务/进程的自定义k/v数据
 
-func NewTracer(kind trace.SpanKind, opts ...Option) *Tracer {
-	o := &TracerOption{
+func NewTracing(kind trace.SpanKind, opts ...Option) *Tracing {
+	tracing := &Tracing{
 		provider:   trace.NewNoopTracerProvider(),
 		propagator: propagation.NewCompositeTextMapPropagator(propagation.Baggage{}, propagation.TraceContext{}),
-		name:       "slark",
+		name:       "tracer",
+		kind:       kind,
 	}
 	for _, opt := range opts {
-		opt(o)
+		opt(tracing)
 	}
-	otel.SetTracerProvider(o.provider)
-	tracer := &Tracer{
-		tracer: otel.Tracer(o.name),
-		opt:    o,
-		kind:   kind,
-	}
-	return tracer
+	otel.SetTracerProvider(tracing.provider)
+	tracing.tracer = otel.Tracer(tracing.name)
+	return tracing
 }
 
-func (t *Tracer) Start(ctx context.Context, spanName string, carrier propagation.TextMapCarrier, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
+func (t *Tracing) Kind() trace.SpanKind {
+	return t.kind
+}
+
+func (t *Tracing) Name() string {
+	return t.name
+}
+
+func (t *Tracing) Start(ctx context.Context, name string, carrier propagation.TextMapCarrier, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
 	if t.kind == trace.SpanKindServer {
-		ctx = t.opt.propagator.Extract(ctx, carrier)
+		ctx = t.propagator.Extract(ctx, carrier)
 	}
-	ctx, span := t.tracer.Start(ctx, spanName, opts...)
+	// 创建span
+	ctx, span := t.tracer.Start(ctx, name, opts...)
 	if t.kind == trace.SpanKindClient {
-		t.opt.propagator.Inject(ctx, carrier)
+		t.propagator.Inject(ctx, carrier)
 	}
 	return ctx, span
 }
 
-func (t *Tracer) Stop(_ context.Context, span trace.Span, m interface{}, err error) {
-	if err != nil {
-		span.RecordError(err)
-		if e := errors.FromError(err); e != nil {
-			span.SetAttributes(attribute.Key("rpc.status_code").Int64(int64(e.Code)))
-		}
-		span.SetStatus(codes.Error, err.Error())
-	} else {
-		span.SetStatus(codes.Ok, "OK")
-	}
-
-	if p, ok := m.(proto.Message); ok {
-		if t.kind == trace.SpanKindServer {
-			span.SetAttributes(attribute.Key("send_msg.size").Int(proto.Size(p)))
-		} else {
-			span.SetAttributes(attribute.Key("recv_msg.size").Int(proto.Size(p)))
-		}
-	}
+func (t *Tracing) Stop(span trace.Span, m interface{}, err error) {
+	//if err != nil {
+	//	span.RecordError(err)
+	//	if e := errors.FromError(err); e != nil {
+	//		span.SetAttributes(attribute.Key("rpc.status_code").Int64(int64(e.Code)))
+	//	}
+	//	span.SetStatus(codes.Error, err.Error())
+	//} else {
+	//	span.SetStatus(codes.Ok, "OK")
+	//}
+	//
+	//if p, ok := m.(proto.Message); ok {
+	//	if t.kind == trace.SpanKindServer {
+	//		span.SetAttributes(attribute.Key("send_msg.size").Int(proto.Size(p)))
+	//	} else {
+	//		span.SetAttributes(attribute.Key("recv_msg.size").Int(proto.Size(p)))
+	//	}
+	//}
 	span.End()
-}
-
-func HTTPServerTrace(opts ...Option) middleware.HTTPMiddleware {
-	tracer := NewTracer(trace.SpanKindServer, opts...)
-	return func(handler http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			opt := []trace.SpanStartOption{trace.WithSpanKind(tracer.kind), trace.WithAttributes(httpconv.ServerRequest(tracer.opt.name, r)...)}
-			ctx, span := tracer.Start(r.Context(), r.URL.Path, propagation.HeaderCarrier(r.Header), opt...)
-			handler.ServeHTTP(w, r.WithContext(ctx))
-			span.End()
-		})
-	}
-}
-
-func GRPCServerTrace(opts ...Option) middleware.Middleware {
-	tracer := NewTracer(trace.SpanKindServer, opts...)
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (rsp interface{}, err error) {
-			md, ok := metadata.FromIncomingContext(ctx)
-			if !ok {
-				md = metadata.MD{}
-			}
-			name, _ := ctx.Value(utils.Method).(string)
-			name, attr := SpanInfo(name, parseAddr(ctx))
-			ctx, span := tracer.Start(ctx, name, &Metadata{&md}, trace.WithSpanKind(trace.SpanKindServer), trace.WithAttributes(attr...))
-			defer tracer.Stop(ctx, span, rsp, err)
-			return handler(ctx, req)
-		}
-	}
-}
-
-func GRPCClientTrace(opts ...Option) middleware.Middleware {
-	tracer := NewTracer(trace.SpanKindClient, opts...)
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (rsp interface{}, err error) {
-			md, ok := metadata.FromOutgoingContext(ctx)
-			if !ok {
-				md = metadata.MD{}
-			}
-			m, _ := ctx.Value(utils.Target).(map[string]string)
-			var (
-				name string
-				attr []attribute.KeyValue
-			)
-			for k, v := range m {
-				name, attr = SpanInfo(k, v)
-			}
-			ctx, span := tracer.Start(ctx, name, &Metadata{&md}, trace.WithSpanKind(trace.SpanKindClient), trace.WithAttributes(attr...))
-			ctx = metadata.NewOutgoingContext(ctx, md)
-			defer tracer.Stop(ctx, span, rsp, err)
-			return handler(ctx, req)
-		}
-	}
 }

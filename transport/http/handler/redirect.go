@@ -1,7 +1,6 @@
-package redirect
+package handler
 
 import (
-	"github.com/go-slark/slark/middleware"
 	"net/http"
 )
 
@@ -11,7 +10,7 @@ type Redirecting struct {
 	Code        int
 }
 
-func Redirect(redirect *Redirecting) middleware.HTTPMiddleware {
+func Redirect(redirect *Redirecting) Middleware {
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == redirect.URL {

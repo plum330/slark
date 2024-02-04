@@ -18,6 +18,8 @@ const (
 	UserAgent     = "User-Agent"
 	Target        = "x-target"
 	Method        = "x-method"
+	Path          = "x-path"
+	Code          = "x-code"
 	RequestVars   = "x-request-vars"
 	Extension     = "x-extension"
 

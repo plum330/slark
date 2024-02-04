@@ -1,7 +1,6 @@
-package cors
+package handler
 
 import (
-	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/pkg"
 	"github.com/rs/cors"
 	"net/http"
@@ -53,7 +52,7 @@ func MaxAge(age int) Option {
 	}
 }
 
-func CORS(opts ...Option) middleware.HTTPMiddleware {
+func CORS(opts ...Option) Middleware {
 	return func(handler http.Handler) http.Handler {
 		options := cors.Options{
 			AllowCredentials: true,

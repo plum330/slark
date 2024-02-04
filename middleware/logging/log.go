@@ -15,7 +15,7 @@ func Log(l logger.Logger) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			start := time.Now()
-			fn := ctx.Value(utils.Method)
+			fn := fmt.Sprintf("%s %s", ctx.Value(utils.Method), ctx.Value(utils.Path))
 			fields := map[string]interface{}{
 				"request": fmt.Sprintf("%+v", req),
 				"start":   start.Format(time.RFC3339),
