@@ -2,7 +2,7 @@ package socketio
 
 import (
 	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/transport/http/handler"
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/googollee/go-socket.io/engineio"
 	"github.com/googollee/go-socket.io/engineio/session"
@@ -37,7 +37,7 @@ func Logger(l logger.Logger) Option {
 	}
 }
 
-func Handlers(handlers []middleware.HTTPMiddleware) Option {
+func Handlers(handlers []handler.Middleware) Option {
 	return func(s *Server) {
 		s.handlers = handlers
 	}

@@ -13,14 +13,18 @@ type counter struct {
 	values []string
 }
 
-func NewCounter(opt *VecOptions) Counter {
-	opts := prometheus.CounterOpts{
-		Namespace: opt.namespace,
-		Subsystem: opt.subSystem,
-		Name:      opt.name,
-		Help:      opt.help,
+func NewCounter(opts ...VecOpts) Counter {
+	o := newVecOptions()
+	for _, opt := range opts {
+		opt(o)
 	}
-	vec := prometheus.NewCounterVec(opts, opt.labels)
+	cOpts := prometheus.CounterOpts{
+		Namespace: o.namespace,
+		Subsystem: o.subSystem,
+		Name:      o.name,
+		Help:      o.help,
+	}
+	vec := prometheus.NewCounterVec(cOpts, o.labels)
 	prometheus.MustRegister(vec)
 	return &counter{
 		CounterVec: vec,

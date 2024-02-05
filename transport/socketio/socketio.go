@@ -4,9 +4,8 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
-	"github.com/go-slark/slark/middleware/trace"
+	"github.com/go-slark/slark/transport/http/handler"
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/googollee/go-socket.io/engineio"
 	"github.com/googollee/go-socket.io/engineio/transport"
@@ -19,7 +18,7 @@ import (
 type Server struct {
 	*socketio.Server
 	listener net.Listener
-	handlers []middleware.HTTPMiddleware
+	handlers []handler.Middleware
 	logger   logger.Logger
 	eio      *engineio.Options
 	adapter  *socketio.RedisAdapterOptions
@@ -89,8 +88,8 @@ func (s *Server) Start() error {
 			return
 		}
 	}()
-	s.handlers = append(s.handlers, trace.BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(s.logger)))
-	http.Handle(s.path, middleware.ComposeHTTPMiddleware(s, s.handlers...))
+	s.handlers = append(s.handlers, handler.BuildRequestID(), handler.WrapMiddleware(recovery.Recovery(s.logger)))
+	http.Handle(s.path, handler.ComposeMiddleware(s, s.handlers...))
 	err := http.Serve(s.listener, nil)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err

@@ -1,7 +1,7 @@
 package limiter
 
 import (
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -9,11 +9,10 @@ import (
 
 func TestTBLimiter(t *testing.T) {
 	options := &redis.Options{
-		Network:     "tcp",
-		Addr:        "192.168.3.13:2379",
-		Password:    "CtHHQNbFkXpw33ew",
-		DB:          5,
-		IdleTimeout: time.Duration(10) * time.Second,
+		Network:  "tcp",
+		Addr:     "192.168.3.13:2379",
+		Password: "CtHHQNbFkXpw33ew",
+		DB:       5,
 	}
 	l := NewTBLimiter(5, 10, redis.NewClient(options), "limiter")
 	var allow int

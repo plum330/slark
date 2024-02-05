@@ -14,14 +14,18 @@ type gauge struct {
 	values []string
 }
 
-func NewGauge(opt *VecOptions) Gauge {
-	opts := prometheus.GaugeOpts{
-		Namespace: opt.namespace,
-		Subsystem: opt.subSystem,
-		Name:      opt.name,
-		Help:      opt.help,
+func NewGauge(opts ...VecOpts) Gauge {
+	o := newVecOptions()
+	for _, opt := range opts {
+		opt(o)
 	}
-	vec := prometheus.NewGaugeVec(opts, opt.labels)
+	gOpts := prometheus.GaugeOpts{
+		Namespace: o.namespace,
+		Subsystem: o.subSystem,
+		Name:      o.name,
+		Help:      o.help,
+	}
+	vec := prometheus.NewGaugeVec(gOpts, o.labels)
 	prometheus.MustRegister(vec)
 	return &gauge{
 		GaugeVec: vec,

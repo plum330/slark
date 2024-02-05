@@ -116,7 +116,7 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate(), recovery.Recovery(srv.logger))
 	srv.handlers = append(srv.handlers, handler.BuildRequestID())
-	srv.Handler = handler.WrapMiddleware(srv.Handler, srv.handlers...)
+	srv.Handler = handler.ComposeMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
 }

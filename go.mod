@@ -6,7 +6,6 @@ require (
 	github.com/bufbuild/protovalidate-go v0.4.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-playground/form/v4 v4.2.1
-	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/glog v1.1.2
 	github.com/golang/protobuf v1.5.3

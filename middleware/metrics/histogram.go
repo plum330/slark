@@ -12,14 +12,19 @@ type histogram struct {
 	values []string
 }
 
-func NewHistogram(opt *VecOptions) Histogram {
-	opts := prometheus.HistogramOpts{
-		Namespace: opt.namespace,
-		Subsystem: opt.subSystem,
-		Name:      opt.name,
-		Help:      opt.help,
+func NewHistogram(opts ...VecOpts) Histogram {
+	o := newVecOptions()
+	for _, opt := range opts {
+		opt(o)
 	}
-	vec := prometheus.NewHistogramVec(opts, opt.labels)
+	hOpts := prometheus.HistogramOpts{
+		Namespace: o.namespace,
+		Subsystem: o.subSystem,
+		Name:      o.name,
+		Help:      o.help,
+		Buckets:   o.buckets,
+	}
+	vec := prometheus.NewHistogramVec(hOpts, o.labels)
 	prometheus.MustRegister(vec)
 	return &histogram{
 		HistogramVec: vec,

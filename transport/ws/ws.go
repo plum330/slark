@@ -4,9 +4,8 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
-	"github.com/go-slark/slark/middleware/trace"
+	"github.com/go-slark/slark/transport/http/handler"
 	"github.com/gorilla/websocket"
 	"github.com/rs/xid"
 	"net"
@@ -19,7 +18,7 @@ import (
 
 type Server struct {
 	*http.Server
-	handlers []middleware.HTTPMiddleware
+	handlers []handler.Middleware
 	before   func(w http.ResponseWriter, r *http.Request) (interface{}, error)
 	after    func(s *Session) error
 	opt      *SessionOption
@@ -27,11 +26,11 @@ type Server struct {
 	listener net.Listener
 	handler  http.Handler
 	logger   logger.Logger
-	pool     *sync.Pool
-	network  string
-	address  string
-	path     string
-	err      error
+	//pool     *sync.Pool
+	network string
+	address string
+	path    string
+	err     error
 }
 
 func NewServer(opts ...ServerOption) *Server {
@@ -48,11 +47,11 @@ func NewServer(opts ...ServerOption) *Server {
 			hsTime:     3 * time.Second,
 			rLimit:     51200,
 		},
-		pool: &sync.Pool{
-			New: func() interface{} {
-				return new(Session)
-			},
-		},
+		//pool: &sync.Pool{
+		//	New: func() interface{} {
+		//		return new(Session)
+		//	},
+		//},
 		network: "tcp",
 		address: "0.0.0.0:0",
 		logger:  logger.GetLogger(),
@@ -133,8 +132,8 @@ func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
-	s.handlers = append(s.handlers, trace.BuildRequestID(), middleware.WrapMiddleware(recovery.Recovery(s.logger)))
-	http.Handle(s.path, middleware.ComposeHTTPMiddleware(s.handler, s.handlers...))
+	s.handlers = append(s.handlers, handler.BuildRequestID(), handler.WrapMiddleware(recovery.Recovery(s.logger)))
+	http.Handle(s.path, handler.ComposeMiddleware(s.handler, s.handlers...))
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
@@ -191,15 +190,15 @@ type Session struct {
 	ch      chan struct{}
 	closed  atomic.Bool
 	logger  logger.Logger
-	pool    *sync.Pool
-	l       sync.Mutex
-	opt     *SessionOption
-	hbTime  int64
-	outErr  chan error
-	inErr   chan error
+	//pool    *sync.Pool
+	l      sync.Mutex
+	opt    *SessionOption
+	hbTime int64
+	outErr chan error
+	inErr  chan error
 }
 
-func (s *Session) reset(conn *websocket.Conn, srv *Server) {
+func (s *Session) set(conn *websocket.Conn, srv *Server) {
 	s.id = srv.opt.NewID()
 	s.context = context.Background()
 	s.ctx = nil
@@ -210,7 +209,7 @@ func (s *Session) reset(conn *websocket.Conn, srv *Server) {
 	s.closed.Store(false)
 	s.l = sync.Mutex{}
 	s.logger = srv.logger
-	s.pool = srv.pool
+	//s.pool = srv.pool
 	s.opt = srv.opt
 	s.hbTime = time.Now().Unix()
 	s.inErr = make(chan error, 1)
@@ -235,8 +234,9 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 	if err != nil {
 		return nil, err
 	}
-	sess := s.pool.Get().(*Session)
-	sess.reset(ws, s)
+	//sess := s.pool.Get().(*Session)
+	sess := &Session{}
+	sess.set(ws, s)
 	go sess.read()
 	go sess.write()
 	return sess, nil
@@ -347,7 +347,7 @@ func (s *Session) Send(m *Msg) error {
 }
 
 func (s *Session) Close() {
-	defer s.pool.Put(s)
+	//defer s.pool.Put(s)
 	if s.closed.Load() {
 		return
 	}

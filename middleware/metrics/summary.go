@@ -12,15 +12,19 @@ type summary struct {
 	values []string
 }
 
-func NewSummary(opt *VecOptions) Summary {
-	opts := prometheus.SummaryOpts{
-		Namespace:  opt.namespace,
-		Subsystem:  opt.subSystem,
-		Name:       opt.name,
-		Help:       opt.help,
-		Objectives: opt.objectives,
+func NewSummary(opts ...VecOpts) Summary {
+	o := newVecOptions()
+	for _, opt := range opts {
+		opt(o)
 	}
-	vec := prometheus.NewSummaryVec(opts, opt.labels)
+	sOpts := prometheus.SummaryOpts{
+		Namespace:  o.namespace,
+		Subsystem:  o.subSystem,
+		Name:       o.name,
+		Help:       o.help,
+		Objectives: o.objectives,
+	}
+	vec := prometheus.NewSummaryVec(sOpts, o.labels)
 	prometheus.MustRegister(vec)
 	return &summary{
 		SummaryVec: vec,

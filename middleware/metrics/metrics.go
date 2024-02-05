@@ -18,7 +18,20 @@ type VecOptions struct {
 	namespace  string
 	subSystem  string
 	labels     []string
+	buckets    []float64
 	objectives map[float64]float64
+}
+
+func newVecOptions() *VecOptions {
+	return &VecOptions{
+		name:       "vec",
+		help:       "help",
+		namespace:  "server",
+		subSystem:  "request",
+		labels:     []string{"method", "path", "code"},
+		buckets:    []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.250, 0.5, 1},
+		objectives: nil,
+	}
 }
 
 type VecOpts func(options *VecOptions)
@@ -50,6 +63,12 @@ func SubSystem(s string) VecOpts {
 func Labels(labels []string) VecOpts {
 	return func(o *VecOptions) {
 		o.labels = labels
+	}
+}
+
+func Buckets(buckets []float64) VecOpts {
+	return func(o *VecOptions) {
+		o.buckets = buckets
 	}
 }
 
