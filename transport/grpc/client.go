@@ -68,6 +68,12 @@ func WithUnaryInterceptor(unary []grpc.UnaryClientInterceptor) Option {
 	}
 }
 
+func appendUnaryInterceptor(unary []grpc.UnaryClientInterceptor) Option {
+	return func(o *option) {
+		o.unary = append(o.unary, unary...)
+	}
+}
+
 func WithStreamInterceptor(stream []grpc.StreamClientInterceptor) Option {
 	return func(o *option) {
 		o.stream = stream
@@ -122,8 +128,8 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 		defer opt.ctx.f()
 	}
 
-	unary := []grpc.UnaryClientInterceptor{opt.interceptor()}
-	stream := []grpc.StreamClientInterceptor{}
+	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt.mw...)}
+	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt.mw)}
 	if len(opt.unary) > 0 {
 		unary = append(unary, opt.unary...)
 	}

@@ -27,28 +27,6 @@ func Engine(cfg *EngineConfig) ServerOption {
 	}
 }
 
-func BuildRequestID(opts ...utils.Option) gin.HandlerFunc {
-	cfg := &utils.Config{
-		Builder: func() string {
-			return utils.BuildRequestID()
-		},
-		RequestID: utils.RayID,
-	}
-
-	for _, opt := range opts {
-		opt(cfg)
-	}
-
-	return func(ctx *gin.Context) {
-		rid := ctx.GetHeader(cfg.RequestID)
-		if len(rid) == 0 {
-			rid = cfg.Builder()
-		}
-		ctx.Header(cfg.RequestID, rid)
-		ctx.Request = ctx.Request.WithContext(context.WithValue(context.Background(), cfg.RequestID, rid))
-	}
-}
-
 func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 	middle := middleware.ComposeMiddleware(mw...)
 	return func(ctx *gin.Context) {

@@ -42,7 +42,7 @@ func NewClient(objs []*ClientObj, opts ...Option) *Client {
 		if obj.Timout == 0 {
 			obj.Timout = 5 * time.Second
 		}
-		opts = append(opts, WithAddr(obj.Addr), WithUnaryInterceptor([]grpc.UnaryClientInterceptor{UnaryClientTimeout(obj.Timout)}))
+		opts = append(opts, WithAddr(obj.Addr), appendUnaryInterceptor([]grpc.UnaryClientInterceptor{unaryClientInterceptor(ClientTimeout(obj.Timout))}))
 		client, err := Dial(opts...)
 		if err != nil {
 			panic(err)
@@ -52,11 +52,11 @@ func NewClient(objs []*ClientObj, opts ...Option) *Client {
 	return &Client{clients: clients}
 }
 
-func (c *Client) GetGRPCClient(name string) *grpc.ClientConn {
+func (c *Client) Client(name string) *grpc.ClientConn {
 	return c.clients[name]
 }
 
-func (c *Client) Stop() {
+func (c *Client) Close() {
 	for _, client := range c.clients {
 		_ = client.Close()
 	}

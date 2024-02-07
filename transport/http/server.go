@@ -7,6 +7,7 @@ import (
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/ray"
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
@@ -100,6 +101,8 @@ func NewServer(opts ...ServerOption) *Server {
 		basePath: "/",
 		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
+		handlers: []handler.Middleware{handler.CORS()},
+		mws:      []middleware.Middleware{ray.BuildRequestID()},
 		Engine:   engine,
 		Codecs: &Codecs{
 			bodyDecoder:  RequestBodyDecoder,
@@ -115,7 +118,6 @@ func NewServer(opts ...ServerOption) *Server {
 		o(srv)
 	}
 	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate(), recovery.Recovery(srv.logger))
-	srv.handlers = append(srv.handlers, handler.BuildRequestID())
 	srv.Handler = handler.ComposeMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv

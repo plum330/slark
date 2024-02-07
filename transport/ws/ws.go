@@ -26,32 +26,27 @@ type Server struct {
 	listener net.Listener
 	handler  http.Handler
 	logger   logger.Logger
-	//pool     *sync.Pool
-	network string
-	address string
-	path    string
-	err     error
+	network  string
+	address  string
+	path     string
+	err      error
 }
 
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
-		Server: &http.Server{},
+		Server:   &http.Server{},
+		handlers: []handler.Middleware{handler.CORS()},
 		opt: &SessionOption{
 			ID:         &gid{},
 			in:         1024,
 			out:        1024,
 			rBuffer:    0,
 			wBuffer:    4096,
-			hbInterval: 20 * time.Second,
+			hbInterval: 10 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
 			rLimit:     51200,
 		},
-		//pool: &sync.Pool{
-		//	New: func() interface{} {
-		//		return new(Session)
-		//	},
-		//},
 		network: "tcp",
 		address: "0.0.0.0:0",
 		logger:  logger.GetLogger(),
@@ -132,7 +127,7 @@ func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
-	s.handlers = append(s.handlers, handler.BuildRequestID(), handler.WrapMiddleware(recovery.Recovery(s.logger)))
+	s.handlers = append(s.handlers, handler.WrapMiddleware(recovery.Recovery(s.logger)))
 	http.Handle(s.path, handler.ComposeMiddleware(s.handler, s.handlers...))
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {
@@ -190,12 +185,11 @@ type Session struct {
 	ch      chan struct{}
 	closed  atomic.Bool
 	logger  logger.Logger
-	//pool    *sync.Pool
-	l      sync.Mutex
-	opt    *SessionOption
-	hbTime int64
-	outErr chan error
-	inErr  chan error
+	l       sync.Mutex
+	opt     *SessionOption
+	hbTime  int64
+	outErr  chan error
+	inErr   chan error
 }
 
 func (s *Session) set(conn *websocket.Conn, srv *Server) {
@@ -209,7 +203,6 @@ func (s *Session) set(conn *websocket.Conn, srv *Server) {
 	s.closed.Store(false)
 	s.l = sync.Mutex{}
 	s.logger = srv.logger
-	//s.pool = srv.pool
 	s.opt = srv.opt
 	s.hbTime = time.Now().Unix()
 	s.inErr = make(chan error, 1)
@@ -234,7 +227,6 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 	if err != nil {
 		return nil, err
 	}
-	//sess := s.pool.Get().(*Session)
 	sess := &Session{}
 	sess.set(ws, s)
 	go sess.read()
@@ -347,7 +339,6 @@ func (s *Session) Send(m *Msg) error {
 }
 
 func (s *Session) Close() {
-	//defer s.pool.Put(s)
 	if s.closed.Load() {
 		return
 	}

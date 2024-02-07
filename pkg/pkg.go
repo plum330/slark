@@ -38,25 +38,6 @@ func BuildRequestID() string {
 	return uuid.New().String()
 }
 
-type Config struct {
-	Builder   func() string
-	RequestID string
-}
-
-type Option func(*Config)
-
-func WithBuilder(b func() string) Option {
-	return func(cfg *Config) {
-		cfg.Builder = b
-	}
-}
-
-func WithRequestId(requestID string) Option {
-	return func(cfg *Config) {
-		cfg.RequestID = requestID
-	}
-}
-
 func ParseToken(ctx context.Context, v interface{}) error {
 	token, ok := ctx.Value(Token).(string)
 	if !ok {

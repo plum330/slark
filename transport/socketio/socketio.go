@@ -88,7 +88,7 @@ func (s *Server) Start() error {
 			return
 		}
 	}()
-	s.handlers = append(s.handlers, handler.BuildRequestID(), handler.WrapMiddleware(recovery.Recovery(s.logger)))
+	s.handlers = append(s.handlers, handler.WrapMiddleware(recovery.Recovery(s.logger)))
 	http.Handle(s.path, handler.ComposeMiddleware(s, s.handlers...))
 	err := http.Serve(s.listener, nil)
 	if !errors.Is(err, http.ErrServerClosed) {
