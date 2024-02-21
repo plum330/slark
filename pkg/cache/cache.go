@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/dtm-labs/rockscache"
 	"github.com/go-slark/slark/pkg/sf"
 	"github.com/redis/go-redis/v9"
@@ -25,7 +26,7 @@ func New(redis *redis.Client, sf *sf.Group, err error) *Cache {
 }
 
 func (c *Cache) Fetch(ctx context.Context, key string, expire time.Duration, v any, fn func(any) error) error {
-	_, err, _ := c.sf.Do(key, func() (interface{}, error) {
+	data, err, cache := c.sf.Do(key, func() (interface{}, error) {
 		return c.rocks.Fetch2(ctx, key, expire, func() (string, error) {
 			err := fn(v)
 			if err != nil {
@@ -34,11 +35,34 @@ func (c *Cache) Fetch(ctx context.Context, key string, expire time.Duration, v a
 				}
 				return "", err
 			}
-			data, _ := json.Marshal(v)
-			return string(data), nil
+			data, err := json.Marshal(v)
+			return string(data), err
 		})
 	})
-	return err
+	if err != nil {
+		return err
+	}
+	if cache {
+		return nil
+	}
+	return json.Unmarshal([]byte(data.(string)), v)
+}
+
+/*
+ key: db unique index key
+ kf : db primary index key
+ fn: query primary index by unique index
+ f: query value by primary index
+*/
+
+func (c *Cache) FetchIndex(ctx context.Context, key string, expire time.Duration, kf func(any) string, v any, fn, f func(any) error) error {
+	var pk any
+	err := c.Fetch(ctx, key, expire, &pk, fn)
+	if err != nil {
+		return err
+	}
+	fmt.Println("!!!!!!!!!:", pk)
+	return c.Fetch(ctx, kf(pk), expire, v, f)
 }
 
 func (c *Cache) Delete(key string) error {
