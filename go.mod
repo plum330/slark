@@ -1,9 +1,10 @@
 module github.com/go-slark/slark
 
-go 1.19
+go 1.20
 
 require (
 	github.com/bufbuild/protovalidate-go v0.4.0
+	github.com/dtm-labs/rockscache v0.1.1
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-playground/form/v4 v4.2.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -20,6 +21,7 @@ require (
 	github.com/rs/cors v1.8.3
 	github.com/rs/xid v1.5.0
 	github.com/sirupsen/logrus v1.9.0
+	github.com/spaolacci/murmur3 v1.1.0
 	github.com/stretchr/testify v1.8.4
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	go.etcd.io/etcd/client/v3 v3.5.9
@@ -71,6 +73,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/lithammer/shortuuid v3.0.0+incompatible // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect

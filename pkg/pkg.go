@@ -103,3 +103,14 @@ func FilterValidIP() ([]net.IP, error) {
 	}
 	return ips, nil
 }
+
+func Delete[T comparable](ss []T, elem T) []T {
+	var index int
+	for _, s := range ss {
+		if s != elem {
+			ss[index] = s
+			index++
+		}
+	}
+	return ss[:index]
+}
