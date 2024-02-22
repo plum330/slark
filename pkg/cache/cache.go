@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/dtm-labs/rockscache"
 	"github.com/go-slark/slark/pkg/sf"
 	"github.com/redis/go-redis/v9"
@@ -61,7 +60,6 @@ func (c *Cache) FetchIndex(ctx context.Context, key string, expire time.Duration
 	if err != nil {
 		return err
 	}
-	fmt.Println("!!!!!!!!!:", pk)
 	return c.Fetch(ctx, kf(pk), expire, v, f)
 }
 

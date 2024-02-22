@@ -54,3 +54,11 @@ func ServerUnavailable(msg, reason string) *Error {
 func IsServerUnavailable(err error) bool {
 	return Code(err) == http.StatusServiceUnavailable
 }
+
+func ServerTimeout(msg, reason string) *Error {
+	return New(http.StatusGatewayTimeout, msg, reason)
+}
+
+func IsServerTimeout(err error) bool {
+	return Code(err) == http.StatusGatewayTimeout
+}
