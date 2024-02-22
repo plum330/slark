@@ -92,6 +92,8 @@ func Headers(headers []string) ServerOption {
 	}
 }
 
+// trace -> log -> metric -> breaker -> recovery -> ...
+
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
@@ -100,8 +102,7 @@ func NewServer(opts ...ServerOption) *Server {
 		basePath: "/",
 		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
-		handlers: []handler.Middleware{handler.CORS()},
-		mws:      []middleware.Middleware{handler.BuildRequestID()},
+		handlers: []handler.Middleware{handler.BuildRequestID(), handler.CORS()},
 		Engine:   engine,
 		Codecs: &Codecs{
 			bodyDecoder:  RequestBodyDecoder,

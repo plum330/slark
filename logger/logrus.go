@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/trace"
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"
@@ -292,7 +293,11 @@ func (l *logEntity) Fire(entry *logrus.Entry) error {
 	if ctx == nil {
 		return nil
 	}
-	entry.Data[utils.RayID] = ctx.Value(utils.RayID)
+	traceID, ok := ctx.Value(utils.RayID).(string)
+	if !ok {
+		traceID = trace.ExtractTraceID(ctx)
+	}
+	entry.Data[utils.RayID] = traceID
 	entry.Data[utils.LogName] = l.name
 
 	// 日志统一分发 es mongo kafka

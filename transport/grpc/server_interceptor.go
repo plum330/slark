@@ -19,6 +19,8 @@ import (
 	"time"
 )
 
+//trace -> recovery -> stat -> metric -> breaker -> ...
+
 func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		if strings.HasPrefix(info.FullMethod, "/") {
@@ -128,7 +130,7 @@ func ServerAuthZ() middleware.Middleware {
 }
 
 func UnaryServerTrace(opts ...tracing.Option) grpc.UnaryServerInterceptor {
-	tracer := tracing.NewTracer(trace.SpanKindClient, opts...)
+	tracer := tracing.NewTracer(trace.SpanKindServer, opts...)
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
@@ -179,7 +181,7 @@ func (w *ssWrapper) Context() context.Context {
 }
 
 func StreamServerTrace(opts ...tracing.Option) grpc.StreamServerInterceptor {
-	tracer := tracing.NewTracer(trace.SpanKindClient, opts...)
+	tracer := tracing.NewTracer(trace.SpanKindServer, opts...)
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		c := ss.Context()
 		md, ok := metadata.FromIncomingContext(c)

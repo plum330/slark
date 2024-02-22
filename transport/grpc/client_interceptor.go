@@ -16,6 +16,8 @@ import (
 	"time"
 )
 
+// trace -> metric -> breaker -> timeout -> ...
+
 func unaryClientInterceptor(mw ...middleware.Middleware) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
 		_, err := middleware.ComposeMiddleware(mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {

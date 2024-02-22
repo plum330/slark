@@ -19,7 +19,10 @@ func Trace(opts ...tracing.Option) Middleware {
 			ctx, span := t.Start(r.Context(), r.URL.Path, propagation.HeaderCarrier(r.Header), opt...)
 			defer span.End()
 			handler.ServeHTTP(w, r.WithContext(ctx))
+
 			// TODO extract info from response writer wrapper
+			//span.SetAttributes(semconv.HTTPAttributesFromHTTPStatusCode(0)...)
+			//span.SetStatus(semconv.SpanStatusFromHTTPStatusCodeAndSpanKind(0, trace.SpanKindServer))
 		})
 	}
 }
