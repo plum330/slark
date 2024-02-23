@@ -1,0 +1,103 @@
+package kafka
+
+import (
+	"context"
+	"github.com/go-slark/slark/logger"
+	"github.com/go-slark/slark/pkg/bulk"
+	"github.com/segmentio/kafka-go"
+	"time"
+)
+
+type Producer struct {
+	kw     *kafka.Writer
+	topic  string
+	tasker *bulk.Chunk
+}
+
+type option struct {
+	autoTopicCreate bool
+	interval        time.Duration
+	chunkSize       int
+}
+
+type Option func(*option)
+
+func ChunkSize(size int) Option {
+	return func(o *option) {
+		o.chunkSize = size
+	}
+}
+
+func Interval(interval time.Duration) Option {
+	return func(o *option) {
+		o.interval = interval
+	}
+}
+
+func AutoTopicCrate(auto bool) Option {
+	return func(o *option) {
+		o.autoTopicCreate = auto
+	}
+}
+
+func NewProducer(addr []string, topic string, opts ...Option) *Producer {
+	kw := &kafka.Writer{
+		Addr:        kafka.TCP(addr...),
+		Topic:       topic,
+		Balancer:    &kafka.LeastBytes{},
+		Compression: kafka.Snappy,
+	}
+	producer := &Producer{
+		kw:    kw,
+		topic: topic,
+	}
+	var o option
+	for _, opt := range opts {
+		opt(&o)
+	}
+	kw.AllowAutoTopicCreation = o.autoTopicCreate
+	co := make([]bulk.ChunkOption, 0)
+	if o.chunkSize > 0 {
+		co = append(co, bulk.ChunkMax(o.chunkSize))
+	}
+	if o.interval > 0 {
+		co = append(co, bulk.ChunkInterval(o.interval))
+	}
+	f := func(tasks []any) {
+		messages := make([]kafka.Message, 0, len(tasks))
+		var (
+			msg kafka.Message
+			ok  bool
+		)
+		for _, task := range tasks {
+			msg, ok = task.(kafka.Message)
+			if ok {
+				messages = append(messages, msg)
+			}
+		}
+		err := producer.kw.WriteMessages(context.TODO(), messages...)
+		if err != nil {
+			logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": err}, "batch produce kafka msg error")
+		}
+	}
+	producer.tasker = bulk.NewChunk(f)
+	return producer
+}
+
+func (p *Producer) Produce(ctx context.Context, k, v []byte) error {
+	msg := kafka.Message{
+		Key:   k,
+		Value: v,
+	}
+	if p.tasker != nil {
+		p.tasker.Submit(msg, len(v))
+	}
+	return p.kw.WriteMessages(ctx, msg)
+}
+
+func (p *Producer) Close() error {
+	if p.tasker != nil {
+		p.tasker.Force()
+	}
+	return p.kw.Close()
+}

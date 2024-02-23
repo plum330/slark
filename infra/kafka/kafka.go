@@ -5,7 +5,10 @@ import (
 	"github.com/IBM/sarama"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/pkg"
-	"github.com/pkg/errors"
+	tracing "github.com/go-slark/slark/pkg/trace"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"google.golang.org/grpc/metadata"
 	"time"
 )
 
@@ -13,6 +16,7 @@ type KafkaProducer struct {
 	sarama.SyncProducer
 	sarama.AsyncProducer
 	logger.Logger
+	*tracing.Tracer
 }
 
 type ProducerConf struct {
@@ -22,6 +26,7 @@ type ProducerConf struct {
 	ReturnSuccess bool     `mapstructure:"return_success"`
 	ReturnErrors  bool     `mapstructure:"return_errors"`
 	Version       string   `mapstructure:"version"`
+	TraceEnable   bool     `mapstructure:"trace_enable"`
 }
 
 type ConsumerGroupConf struct {
@@ -34,6 +39,7 @@ type ConsumerGroupConf struct {
 	Interval     time.Duration `mapstructure:"interval"`
 	WorkerNum    uint          `mapstructure:"worker_num"`
 	Version      string        `mapstructure:"version"`
+	TraceEnable  bool          `mapstructure:"trace_enable"`
 }
 
 type KafkaConf struct {
@@ -48,42 +54,70 @@ func (kp *KafkaProducer) Close() {
 
 func (kp *KafkaProducer) SyncSend(ctx context.Context, topic, key string, msg []byte) error {
 	traceID, ok := ctx.Value(utils.RayID).(string)
+	var spanID string
 	if !ok {
-		traceID = utils.BuildRequestID()
+		traceID = tracing.ExtractTraceID(ctx)
+		spanID = tracing.ExtractSpanID(ctx)
 	}
+
+	if kp.Tracer != nil {
+		opt := []trace.SpanStartOption{
+			trace.WithSpanKind(kp.Kind()),
+			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
+		}
+		_, span := kp.Start(ctx, "kafka sync send", &tracing.Carrier{MD: make(metadata.MD)}, opt...)
+		defer span.End()
+	}
+
 	pm := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(msg),
 		Key:   sarama.StringEncoder(key),
 		Headers: []sarama.RecordHeader{
 			{
-				Key:   []byte(utils.RayID),
-				Value: []byte(traceID),
+				Key:   sarama.ByteEncoder(utils.RayID),
+				Value: sarama.ByteEncoder(traceID),
+			},
+			{
+				Key:   sarama.ByteEncoder(utils.SpanID),
+				Value: sarama.ByteEncoder(spanID),
 			},
 		},
 	}
 
 	_, _, err := kp.SyncProducer.SendMessage(pm)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	return nil
+	return err
 }
 
 func (kp *KafkaProducer) AsyncSend(ctx context.Context, topic, key string, msg []byte) error {
 	traceID, ok := ctx.Value(utils.RayID).(string)
+	var spanID string
 	if !ok {
-		traceID = utils.BuildRequestID()
+		traceID = tracing.ExtractTraceID(ctx)
+		spanID = tracing.ExtractSpanID(ctx)
 	}
+
+	if kp.Tracer != nil {
+		opt := []trace.SpanStartOption{
+			trace.WithSpanKind(kp.Kind()),
+			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
+		}
+		_, span := kp.Start(ctx, "kafka async send", &tracing.Carrier{MD: make(metadata.MD)}, opt...)
+		defer span.End()
+	}
+
 	pm := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(msg),
 		Key:   sarama.StringEncoder(key),
 		Headers: []sarama.RecordHeader{
 			{
-				Key:   []byte(utils.RayID),
-				Value: []byte(traceID),
+				Key:   sarama.ByteEncoder(utils.RayID),
+				Value: sarama.ByteEncoder(traceID),
+			},
+			{
+				Key:   sarama.ByteEncoder(utils.SpanID),
+				Value: sarama.ByteEncoder(spanID),
 			},
 		},
 	}
@@ -120,11 +154,14 @@ func (kp *KafkaProducer) monitor() {
 	}(kp.AsyncProducer)
 }
 
-func InitKafkaProducer(conf *ProducerConf) *KafkaProducer {
+func InitKafkaProducer(conf *ProducerConf, opts ...tracing.Option) *KafkaProducer {
 	kp := &KafkaProducer{
 		SyncProducer:  newSyncProducer(conf),
 		AsyncProducer: newAsyncProducer(conf),
 		Logger:        logger.GetLogger(),
+	}
+	if conf.TraceEnable {
+		kp.Tracer = tracing.NewTracer(trace.SpanKindProducer, opts...)
 	}
 	kp.monitor()
 	return kp
@@ -183,13 +220,17 @@ type KafkaConsumerGroup struct {
 	context.Context
 	context.CancelFunc
 	logger.Logger
+	*tracing.Tracer
 }
 
-func InitKafkaConsumer(conf *ConsumerGroupConf) *KafkaConsumerGroup {
+func InitKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) *KafkaConsumerGroup {
 	k := &KafkaConsumerGroup{
 		ConsumerGroup: newConsumerGroup(conf),
 		Topics:        conf.Topics,
 		Logger:        logger.GetLogger(),
+	}
+	if conf.TraceEnable {
+		k.Tracer = tracing.NewTracer(trace.SpanKindConsumer, opts...)
 	}
 	k.Context, k.CancelFunc = context.WithCancel(context.TODO())
 	return k
@@ -230,6 +271,24 @@ func (kc *KafkaConsumerGroup) Consume() {
 		}
 		time.Sleep(time.Second)
 	}
+}
+
+// TraceContext TODO
+func (kc *KafkaConsumerGroup) TraceContext(msg *sarama.ConsumerMessage) context.Context {
+	ctx := context.Background()
+	var span trace.Span
+	if msg == nil {
+		return ctx
+	}
+	if kc.Tracer != nil {
+		opt := []trace.SpanStartOption{
+			trace.WithSpanKind(kc.Kind()),
+			trace.WithAttributes(attribute.String("mq_topic", msg.Topic), attribute.String("mq_key", string(msg.Key)), attribute.String("mq_msg", string(msg.Value))),
+		}
+		ctx, span = kc.Tracer.Start(ctx, "kafka group consume", &tracing.Carrier{MD: make(metadata.MD)}, opt...)
+		defer span.End()
+	}
+	return ctx
 }
 
 func (kc *KafkaConsumerGroup) Start() error {

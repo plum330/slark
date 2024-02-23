@@ -2,8 +2,8 @@ package redis
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 	"time"
 )

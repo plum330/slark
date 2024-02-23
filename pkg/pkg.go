@@ -11,6 +11,7 @@ import (
 const (
 	LogName       = "log-dumper"
 	RayID         = "x-request-id"
+	SpanID        = "x-span-id"
 	Authorization = "x-authorization"
 	Header        = "x-header"
 	Token         = "x-token"

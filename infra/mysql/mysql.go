@@ -1,9 +1,9 @@
 package mysql
 
 import (
+	"errors"
 	"fmt"
 	xlogger "github.com/go-slark/slark/logger"
-	"github.com/pkg/errors"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -45,12 +45,12 @@ func createDB(c *MySqlConfig) (*gorm.DB, error) {
 	}
 	db, err := gorm.Open(mysql.Open(c.Address), cfg)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	sqlDB, err := db.DB()
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	sqlDB.SetMaxIdleConns(c.MaxIdleConn)
@@ -64,7 +64,7 @@ func createDB(c *MySqlConfig) (*gorm.DB, error) {
 
 	if err = sqlDB.Ping(); err != nil {
 		_ = sqlDB.Close()
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	if db == nil {

@@ -2,9 +2,9 @@ package mongo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/go-slark/slark/logger"
-	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -52,12 +52,12 @@ func createMongoClient(c *MongoConf) (*mongo.Client, error) {
 	defer cancel()
 	cli, err := mongo.Connect(ctx, opts)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	err = cli.Ping(context.TODO(), nil)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 
 	return cli, nil
