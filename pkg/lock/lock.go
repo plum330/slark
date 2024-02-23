@@ -26,6 +26,7 @@ func New(key string, expire int64, redis *redis.Client) *Lock {
 }
 
 func (l *Lock) Lock(ctx context.Context) (bool, error) {
+	//result, err := l.redis.SetNX(ctx, l.key, l.value, time.Duration(l.expire*1000+500) * time.Millisecond).Result()
 	src := `
 		if redis.call("GET", KEYS[1]) == ARGV[1] then
     		redis.call("SET", KEYS[1], ARGV[1], "PX", ARGV[2])
