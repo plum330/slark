@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/logger"
@@ -18,6 +19,7 @@ import (
 type Server struct {
 	*http.Server
 	listener net.Listener
+	tls      *tls.Config
 	handlers []handler.Middleware
 	mws      []middleware.Middleware
 	err      error
@@ -41,6 +43,12 @@ func Network(network string) ServerOption {
 func Address(addr string) ServerOption {
 	return func(s *Server) {
 		s.address = addr
+	}
+}
+
+func TLS(tls *tls.Config) ServerOption {
+	return func(s *Server) {
+		s.tls = tls
 	}
 }
 
@@ -114,6 +122,7 @@ func NewServer(opts ...ServerOption) *Server {
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
 	}
 	srv.Handler = srv.Engine
+	srv.TLSConfig = srv.tls
 	for _, o := range opts {
 		o(srv)
 	}
@@ -136,7 +145,12 @@ func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
-	err := s.Serve(s.listener)
+	var err error
+	if s.tls != nil {
+		err = s.ServeTLS(s.listener, "", "")
+	} else {
+		err = s.Serve(s.listener)
+	}
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}

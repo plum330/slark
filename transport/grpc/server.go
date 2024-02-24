@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"crypto/tls"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
@@ -9,6 +10,7 @@ import (
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
@@ -23,6 +25,7 @@ type Server struct {
 	*grpc.Server
 	health   *health.Server
 	listener net.Listener
+	tls      *tls.Config
 	err      error
 	logger   logger.Logger
 	network  string
@@ -57,6 +60,9 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 	if len(srv.stream) > 0 {
 		grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(srv.stream...))
+	}
+	if srv.tls != nil {
+		grpcOpts = append(grpcOpts, grpc.Creds(credentials.NewTLS(srv.tls)))
 	}
 	if len(srv.opts) > 0 {
 		grpcOpts = append(grpcOpts, srv.opts...)
@@ -134,6 +140,12 @@ func Address(addr string) ServerOption {
 func Listener(l net.Listener) ServerOption {
 	return func(s *Server) {
 		s.listener = l
+	}
+}
+
+func TLS(tls *tls.Config) ServerOption {
+	return func(s *Server) {
+		s.tls = tls
 	}
 }
 

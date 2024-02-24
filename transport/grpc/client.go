@@ -3,10 +3,12 @@ package grpc
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"time"
@@ -35,6 +37,7 @@ type option struct {
 	strategy  []Strategy
 	addr      string
 	insecure  bool
+	tls       *tls.Config
 	opts      []grpc.DialOption
 	unary     []grpc.UnaryClientInterceptor
 	stream    []grpc.StreamClientInterceptor
@@ -53,6 +56,18 @@ func WithTimeout(tm time.Duration) Option {
 func WithAddr(addr string) Option {
 	return func(o *option) {
 		o.addr = addr
+	}
+}
+
+func WithInsecure(insecure bool) Option {
+	return func(o *option) {
+		o.insecure = insecure
+	}
+}
+
+func WithTLS(tls *tls.Config) Option {
+	return func(o *option) {
+		o.tls = tls
 	}
 }
 
@@ -164,7 +179,9 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 		buf.WriteString("}")
 		dialOpts = append(dialOpts, grpc.WithDefaultServiceConfig(buf.String()))
 	}
-
+	if opt.tls != nil {
+		dialOpts = append(dialOpts, grpc.WithTransportCredentials(credentials.NewTLS(opt.tls)))
+	}
 	if len(opt.opts) > 0 {
 		dialOpts = append(dialOpts, opt.opts...)
 	}

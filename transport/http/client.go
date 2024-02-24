@@ -3,6 +3,7 @@ package http
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/errors"
 	utils "github.com/go-slark/slark/pkg"
@@ -14,8 +15,7 @@ import (
 type Client struct {
 	*http.Client
 	transport http.RoundTripper
-
-	// retry
+	tls       *tls.Config
 }
 
 type ClientOption func(client *Client)
@@ -30,6 +30,13 @@ func NewClient(opts ...ClientOption) *Client {
 	for _, opt := range opts {
 		opt(client)
 	}
+	if client.tls != nil {
+		transport, ok := client.transport.(*http.Transport)
+		if ok {
+			transport.TLSClientConfig = client.tls
+		}
+	}
+	client.Client.Transport = client.transport
 	return client
 }
 
@@ -42,6 +49,12 @@ func Timeout(tm time.Duration) ClientOption {
 func Transport(tr *http.Transport) ClientOption {
 	return func(client *Client) {
 		client.transport = tr
+	}
+}
+
+func WithTLS(tls *tls.Config) ClientOption {
+	return func(client *Client) {
+		client.tls = tls
 	}
 }
 
