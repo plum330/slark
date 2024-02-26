@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/registry"
+	"github.com/go-slark/slark/transport/grpc/resolver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -36,6 +37,7 @@ type option struct {
 	keepalive Keepalive
 	strategy  []Strategy
 	addr      string
+	subset    int
 	insecure  bool
 	tls       *tls.Config
 	opts      []grpc.DialOption
@@ -56,6 +58,12 @@ func WithTimeout(tm time.Duration) Option {
 func WithAddr(addr string) Option {
 	return func(o *option) {
 		o.addr = addr
+	}
+}
+
+func WithSubset(subset int) Option {
+	return func(o *option) {
+		o.subset = subset
 	}
 }
 
@@ -106,6 +114,21 @@ func WithKeepalive(keepalive Keepalive) Option {
 		o.keepalive = keepalive
 	}
 }
+
+/*
+{
+	"methodConfig": [{
+		  "retryPolicy": {
+			  "MaxAttempts": 3,
+			  "InitialBackoff": ".01s",
+			  "MaxBackoff": ".01s",
+			  "BackoffMultiplier": 1.0,
+			  "RetryableStatusCodes": [ "UNAVAILABLE" ]
+	}}]
+}
+MaxAttempts一次原始请求，2次重试，最大值5
+InitialBakckoff, BackoffMultiplier, MaxBackoff计算重试间隔:第一次重试间隔random(0, InitialBakckoff), 第n次重试间隔random(0, min( InitialBakckoff*BackoffMultiplier*(n-1) , MaxBackoff))
+*/
 
 func WithStrategy(strategy []Strategy) Option {
 	return func(o *option) {
@@ -187,7 +210,7 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 	}
 
 	if opt.discovery != nil {
-		dialOpts = append(dialOpts, grpc.WithResolvers(NewBuilder(opt.discovery)))
+		dialOpts = append(dialOpts, grpc.WithResolvers(resolver.NewBuilder(opt.discovery)))
 	}
 	return grpc.DialContext(opt.ctx.c, opt.addr, dialOpts...)
 }

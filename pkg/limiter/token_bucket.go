@@ -26,17 +26,42 @@ type TBLimiter struct {
 	logger   logger.Logger
 }
 
-func NewTBLimiter(limit, burst int, redis *redis.Client, key string) *TBLimiter {
-	return &TBLimiter{
-		rate:     limit,
-		burst:    burst,
+type TBOption func(limiter *TBLimiter)
+
+func TBRate(rate int) TBOption {
+	return func(l *TBLimiter) {
+		l.rate = rate
+	}
+}
+
+func TBBurst(burst int) TBOption {
+	return func(l *TBLimiter) {
+		l.burst = burst
+	}
+}
+
+func NewTBLimiter(redis *redis.Client, key string, opts ...TBOption) *TBLimiter {
+	l := &TBLimiter{
+		rate:     5,
+		burst:    10,
 		redis:    redis,
 		tokenKey: fmt.Sprintf("token_bucket:key:%s:tokens", key),
 		tsKey:    fmt.Sprintf("token_bucket:key:%s:ts", key),
 		alive:    1,
-		limiter:  rate.NewLimiter(rate.Every(time.Second/time.Duration(limit)), burst),
 		logger:   logger.GetLogger(),
 	}
+	l.limiter = rate.NewLimiter(rate.Every(time.Second/time.Duration(l.rate)), l.burst)
+	for _, opt := range opts {
+		opt(l)
+	}
+	return l
+}
+
+func (l *TBLimiter) Pass() error {
+	if l.AllowN(time.Now(), 1) {
+		return nil
+	}
+	return errors.New("rate limit")
 }
 
 func (l *TBLimiter) AllowN(now time.Time, n int) bool {
