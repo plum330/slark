@@ -20,7 +20,7 @@ type App struct {
 	registry registry.Registry
 	name     string
 	version  string
-	metadata map[string]interface{}
+	metadata map[string]string
 }
 
 type Option func(*App)
@@ -55,7 +55,8 @@ func Version(ver string) Option {
 	}
 }
 
-func Metadata(md map[string]interface{}) Option {
+// Metadata :region / weight
+func Metadata(md map[string]string) Option {
 	return func(app *App) {
 		app.metadata = md
 	}

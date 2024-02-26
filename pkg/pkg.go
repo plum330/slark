@@ -23,6 +23,7 @@ const (
 	Code          = "x-code"
 	RequestVars   = "x-request-vars"
 	Extension     = "x-extension"
+	Filter        = "x-filter"
 
 	XForwardedMethod = "X-Forwarded-Method"
 	XForwardedURI    = "X-Forwarded-Uri"
@@ -33,6 +34,7 @@ const (
 	Application = "application"
 
 	Discovery = "discovery"
+	Weight    = "weight"
 )
 
 func BuildRequestID() string {

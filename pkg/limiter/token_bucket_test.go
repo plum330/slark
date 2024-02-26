@@ -14,7 +14,7 @@ func TestTBLimiter(t *testing.T) {
 		Password: "CtHHQNbFkXpw33ew",
 		DB:       5,
 	}
-	l := NewTBLimiter(5, 10, redis.NewClient(options), "limiter")
+	l := NewTBLimiter(redis.NewClient(options), "limiter")
 	var allow int
 	for i := 0; i < 100; i++ {
 		time.Sleep(time.Second / time.Duration(100))
