@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/go-slark/slark/logger"
 	"go.mongodb.org/mongo-driver/event"
@@ -11,12 +10,7 @@ import (
 	"time"
 )
 
-var (
-	client  *mongo.Client
-	mongoDB *mongo.Database
-)
-
-type MongoConf struct {
+type Config struct {
 	Url         string `json:"url"`
 	DateBase    string `json:"data_base"`
 	Timeout     int    `json:"timeout"`
@@ -26,7 +20,7 @@ type MongoConf struct {
 	logger.Logger
 }
 
-func createMongoClient(c *MongoConf) (*mongo.Client, error) {
+func client(c *Config) (*mongo.Client, error) {
 	opts := options.Client()
 	if c.MaxPoolSize != 0 {
 		opts.SetMaxPoolSize(c.MaxPoolSize)
@@ -63,26 +57,31 @@ func createMongoClient(c *MongoConf) (*mongo.Client, error) {
 	return cli, nil
 }
 
-func InitMongoDB(c *MongoConf) {
-	cli, err := createMongoClient(c)
+type Client struct {
+	client *mongo.Client
+	db     *mongo.Database
+}
+
+func New(cfg *Config) (*Client, error) {
+	cli, err := client(cfg)
 	if err != nil {
-		panic(errors.New(fmt.Sprintf("use %+v create mongo client error %+v", c, err)))
+		return nil, err
 	}
-	client = cli
-	mongoDB = cli.Database(c.DateBase)
-}
-
-func NewMongoCollection(coll string) *mongo.Collection {
-	return mongoDB.Collection(coll)
-}
-
-func GetMongoDB() *mongo.Database {
-	return mongoDB
-}
-
-func CloseMongo() error {
-	if client == nil {
-		return nil
+	c := &Client{
+		client: cli,
+		db:     cli.Database(cfg.DateBase),
 	}
-	return client.Disconnect(context.TODO())
+	return c, nil
+}
+
+func (c *Client) Coll(coll string) *mongo.Collection {
+	return c.db.Collection(coll)
+}
+
+func (c *Client) Database() *mongo.Database {
+	return c.db
+}
+
+func (c *Client) Close() error {
+	return c.client.Disconnect(context.TODO())
 }

@@ -1,8 +1,6 @@
 package mysql
 
 import (
-	"errors"
-	"fmt"
 	xlogger "github.com/go-slark/slark/logger"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -11,9 +9,7 @@ import (
 	"time"
 )
 
-var dbInst *gorm.DB
-
-type MySqlConfig struct {
+type Config struct {
 	Address       string `json:"address"`
 	MaxIdleConn   int    `json:"max_idle_conn"`
 	MaxOpenConn   int    `json:"max_open_conn"`
@@ -24,15 +20,11 @@ type MySqlConfig struct {
 	xlogger.Logger
 }
 
-func InitMySql(c *MySqlConfig) {
-	db, err := createDB(c)
-	if err != nil {
-		panic(errors.New(fmt.Sprintf("use %+v create mysql error %+v", c, err)))
-	}
-	dbInst = db
+type Client struct {
+	*gorm.DB
 }
 
-func createDB(c *MySqlConfig) (*gorm.DB, error) {
+func New(c *Config) (*Client, error) {
 	var l logger.Interface
 	if c.CustomizedLog {
 		l = newCustomizedLogger(WithLogLevel(logger.LogLevel(c.LogMode)), WithLogger(c.Logger))
@@ -66,23 +58,15 @@ func createDB(c *MySqlConfig) (*gorm.DB, error) {
 		_ = sqlDB.Close()
 		return nil, err
 	}
-
-	if db == nil {
-		return nil, errors.New("db is nil")
-	}
-	return db, nil
+	return &Client{DB: db}, nil
 }
 
-func GetDB() *gorm.DB {
-	return dbInst
+func (c *Client) Database() *gorm.DB {
+	return c.DB
 }
 
-func Close() {
-	if dbInst == nil {
-		return
-	}
-
-	sqlDB, err := dbInst.DB()
+func (c *Client) Close() {
+	sqlDB, err := c.DB.DB()
 	if err != nil {
 		return
 	}
