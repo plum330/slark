@@ -38,8 +38,6 @@ func Propagator(propagator propagation.TextMapPropagator) Option {
 	}
 }
 
-// propagation.Baggage保存链路跟踪过程中跨服务/进程的自定义k/v数据
-
 func NewTracer(kind trace.SpanKind, opts ...Option) *Tracer {
 	tracer := &Tracer{
 		provider:   otel.GetTracerProvider(),
@@ -55,14 +53,11 @@ func NewTracer(kind trace.SpanKind, opts ...Option) *Tracer {
 }
 
 func (t *Tracer) Start(ctx context.Context, name string, carrier propagation.TextMapCarrier, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	if t.kind == trace.SpanKindServer {
-		// 将carrier从metadata中提取出来，创建span,如此client端与server端就能建立span信息的关联
+	if t.kind == trace.SpanKindServer || t.kind == trace.SpanKindConsumer {
 		ctx = t.propagator.Extract(ctx, carrier)
 	}
-	// 创建span
 	ctx, span := t.tracer.Start(ctx, name, opts...)
-	if t.kind == trace.SpanKindClient {
-		// 将span的context信息注入到carrier，再将carrier写入到metadata中，完成span信息的传递
+	if t.kind == trace.SpanKindClient || t.kind == trace.SpanKindProducer {
 		t.propagator.Inject(ctx, carrier)
 	}
 	return ctx, span

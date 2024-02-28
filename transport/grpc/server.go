@@ -116,11 +116,18 @@ func (s *Server) Endpoint() (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	u := &url.URL{Scheme: utils.Discovery}
+	u := &url.URL{Scheme: s.scheme("grpc")}
 	if len(ips) != 0 {
 		u.Host = net.JoinHostPort(ips[len(ips)-1].String(), port)
 	}
 	return u, nil
+}
+
+func (s *Server) scheme(scheme string) string {
+	if s.tls == nil {
+		return scheme
+	}
+	return scheme + "s"
 }
 
 type ServerOption func(*Server)

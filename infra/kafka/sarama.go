@@ -62,15 +62,6 @@ func (kp *KafkaProducer) SyncSend(ctx context.Context, topic, key string, msg []
 		spanID = tracing.ExtractSpanID(ctx)
 	}
 
-	if kp.Tracer != nil {
-		opt := []trace.SpanStartOption{
-			trace.WithSpanKind(kp.Kind()),
-			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
-		}
-		_, span := kp.Start(ctx, "kafka sync send", &tracing.Carrier{MD: make(metadata.MD)}, opt...)
-		defer span.End()
-	}
-
 	pm := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(msg),
@@ -86,7 +77,21 @@ func (kp *KafkaProducer) SyncSend(ctx context.Context, topic, key string, msg []
 			},
 		},
 	}
-
+	if kp.Tracer != nil {
+		opt := []trace.SpanStartOption{
+			trace.WithSpanKind(kp.Kind()),
+			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
+		}
+		carrier := &tracing.Carrier{MD: &metadata.MD{}}
+		_, span := kp.Start(ctx, "kafka sync send", carrier, opt...)
+		for _, k := range carrier.Keys() {
+			pm.Headers = append(pm.Headers, sarama.RecordHeader{
+				Key:   sarama.ByteEncoder(k),
+				Value: sarama.ByteEncoder(carrier.Get(k)),
+			})
+		}
+		defer span.End()
+	}
 	_, _, err := kp.SyncProducer.SendMessage(pm)
 	return err
 }
@@ -99,15 +104,6 @@ func (kp *KafkaProducer) AsyncSend(ctx context.Context, topic, key string, msg [
 		spanID = tracing.ExtractSpanID(ctx)
 	}
 
-	if kp.Tracer != nil {
-		opt := []trace.SpanStartOption{
-			trace.WithSpanKind(kp.Kind()),
-			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
-		}
-		_, span := kp.Start(ctx, "kafka async send", &tracing.Carrier{MD: make(metadata.MD)}, opt...)
-		defer span.End()
-	}
-
 	pm := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(msg),
@@ -123,7 +119,21 @@ func (kp *KafkaProducer) AsyncSend(ctx context.Context, topic, key string, msg [
 			},
 		},
 	}
-
+	if kp.Tracer != nil {
+		opt := []trace.SpanStartOption{
+			trace.WithSpanKind(kp.Kind()),
+			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
+		}
+		carrier := &tracing.Carrier{MD: &metadata.MD{}}
+		_, span := kp.Start(ctx, "kafka async send", carrier, opt...)
+		for _, k := range carrier.Keys() {
+			pm.Headers = append(pm.Headers, sarama.RecordHeader{
+				Key:   sarama.ByteEncoder(k),
+				Value: sarama.ByteEncoder(carrier.Get(k)),
+			})
+		}
+		defer span.End()
+	}
 	kp.AsyncProducer.Input() <- pm
 	return nil
 }
@@ -295,7 +305,8 @@ func (kc *KafkaConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, cla
 					trace.WithSpanKind(kc.Kind()),
 					trace.WithAttributes(attribute.String("mq_topic", msg.Topic), attribute.String("mq_key", string(msg.Key)), attribute.String("mq_msg", string(msg.Value))),
 				}
-				ctx, span = kc.Tracer.Start(ctx, "kafka group consume", &tracing.Carrier{MD: make(metadata.MD)}, opt...)
+				md := make(metadata.MD)
+				ctx, span = kc.Tracer.Start(ctx, "kafka group consume", &tracing.Carrier{MD: &md}, opt...)
 				defer span.End()
 			}
 			err := handler.Handler(ctx, m)

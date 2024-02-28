@@ -1,6 +1,7 @@
 package grpc
 
 import (
+	"context"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -36,20 +37,23 @@ type ClientObj struct {
 	Timout time.Duration
 }
 
-func NewClient(objs []*ClientObj, opts ...Option) *Client {
+func NewClient(objs []*ClientObj, opts ...Option) (*Client, error) {
 	clients := make(map[string]*grpc.ClientConn, len(objs))
 	for _, obj := range objs {
 		if obj.Timout == 0 {
 			obj.Timout = 5 * time.Second
 		}
-		opts = append(opts, WithAddr(obj.Addr), appendUnaryInterceptor([]grpc.UnaryClientInterceptor{unaryClientInterceptor(ClientTimeout(obj.Timout))}))
-		client, err := Dial(opts...)
+		ctx, cancel := context.WithTimeout(context.Background(), obj.Timout)
+		opts = append(opts, WithAddr(obj.Addr))
+		client, err := Dial(ctx, opts...)
 		if err != nil {
-			panic(err)
+			cancel()
+			return nil, err
 		}
+		cancel()
 		clients[obj.Name] = client
 	}
-	return &Client{clients: clients}
+	return &Client{clients: clients}, nil
 }
 
 func (c *Client) Client(name string) *grpc.ClientConn {

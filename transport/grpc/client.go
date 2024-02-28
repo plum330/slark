@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/registry"
+	"github.com/go-slark/slark/transport/grpc/balancer/node"
 	"github.com/go-slark/slark/transport/grpc/resolver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -14,12 +15,6 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"time"
 )
-
-type ctx struct {
-	tm time.Duration
-	c  context.Context
-	f  context.CancelFunc
-}
 
 type Keepalive struct {
 	KeepaliveTime    time.Duration
@@ -33,25 +28,26 @@ type Strategy struct {
 }
 
 type option struct {
-	ctx       ctx
 	keepalive Keepalive
 	strategy  []Strategy
 	addr      string
 	subset    int
 	insecure  bool
+	tm        time.Duration
 	tls       *tls.Config
 	opts      []grpc.DialOption
 	unary     []grpc.UnaryClientInterceptor
 	stream    []grpc.StreamClientInterceptor
 	mw        []middleware.Middleware
 	discovery registry.Discovery
+	filters   []node.Filter
 }
 
 type Option func(*option)
 
 func WithTimeout(tm time.Duration) Option {
 	return func(o *option) {
-		o.ctx.tm = tm
+		o.tm = tm
 	}
 }
 
@@ -91,12 +87,6 @@ func WithUnaryInterceptor(unary []grpc.UnaryClientInterceptor) Option {
 	}
 }
 
-func appendUnaryInterceptor(unary []grpc.UnaryClientInterceptor) Option {
-	return func(o *option) {
-		o.unary = append(o.unary, unary...)
-	}
-}
-
 func WithStreamInterceptor(stream []grpc.StreamClientInterceptor) Option {
 	return func(o *option) {
 		o.stream = stream
@@ -106,6 +96,12 @@ func WithStreamInterceptor(stream []grpc.StreamClientInterceptor) Option {
 func WithDiscovery(discovery registry.Discovery) Option {
 	return func(o *option) {
 		o.discovery = discovery
+	}
+}
+
+func WithFilters(filters []node.Filter) Option {
+	return func(o *option) {
+		o.filters = filters
 	}
 }
 
@@ -136,13 +132,8 @@ func WithStrategy(strategy []Strategy) Option {
 	}
 }
 
-func Dial(opts ...Option) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	opt := &option{
-		ctx: ctx{
-			c:  context.TODO(),
-			f:  nil,
-			tm: 5 * time.Second,
-		},
 		keepalive: Keepalive{
 			KeepaliveTime:    2 * time.Minute,
 			KeepaliveTimeout: 2 * time.Second,
@@ -161,13 +152,8 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 		o(opt)
 	}
 
-	if opt.ctx.tm != 0 {
-		opt.ctx.c, opt.ctx.f = context.WithTimeout(context.Background(), opt.ctx.tm)
-		defer opt.ctx.f()
-	}
-
-	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt.mw...)}
-	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt.mw)}
+	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt)}
+	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt)}
 	if len(opt.unary) > 0 {
 		unary = append(unary, opt.unary...)
 	}
@@ -212,5 +198,5 @@ func Dial(opts ...Option) (*grpc.ClientConn, error) {
 	if opt.discovery != nil {
 		dialOpts = append(dialOpts, grpc.WithResolvers(resolver.NewBuilder(opt.discovery)))
 	}
-	return grpc.DialContext(opt.ctx.c, opt.addr, dialOpts...)
+	return grpc.DialContext(ctx, opt.addr, dialOpts...)
 }

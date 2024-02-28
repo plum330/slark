@@ -141,7 +141,8 @@ func UnaryServerTrace(opts ...tracing.Option) grpc.UnaryServerInterceptor {
 			trace.WithSpanKind(tracer.Kind()),
 			trace.WithAttributes(attrs...),
 		}
-		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: md}, opt...)
+		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: &md}, opt...)
+		ctx = metadata.NewIncomingContext(ctx, md)
 		defer span.End()
 		resp, err := handler(ctx, req)
 		s, _ := status.FromError(err)
@@ -183,17 +184,18 @@ func (w *ssWrapper) Context() context.Context {
 func StreamServerTrace(opts ...tracing.Option) grpc.StreamServerInterceptor {
 	tracer := tracing.NewTracer(trace.SpanKindServer, opts...)
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		c := ss.Context()
-		md, ok := metadata.FromIncomingContext(c)
+		ctx := ss.Context()
+		md, ok := metadata.FromIncomingContext(ctx)
 		if !ok {
 			md = metadata.MD{}
 		}
-		name, attrs := attribute(c, info.FullMethod)
+		name, attrs := attribute(ctx, info.FullMethod)
 		opt := []trace.SpanStartOption{
 			trace.WithSpanKind(tracer.Kind()),
 			trace.WithAttributes(attrs...),
 		}
-		cx, span := tracer.Start(c, name, &tracing.Carrier{MD: md}, opt...)
+		cx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: &md}, opt...)
+		ctx = metadata.NewIncomingContext(ctx, md)
 		defer span.End()
 		err := handler(srv, &ssWrapper{ServerStream: ss, ctx: cx})
 		if err != nil {

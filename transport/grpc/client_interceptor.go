@@ -13,42 +13,37 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"strconv"
-	"time"
 )
 
 // trace -> metric -> breaker -> timeout -> ...
 
-func unaryClientInterceptor(mw ...middleware.Middleware) grpc.UnaryClientInterceptor {
+func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		_, err := middleware.ComposeMiddleware(mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+		if len(opt.filters) > 0 {
+			ctx = context.WithValue(ctx, utils.Filter, opt.filters)
+		}
+		if opt.tm > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, opt.tm)
+			defer cancel()
+		}
+		_, err := middleware.ComposeMiddleware(opt.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return reply, invoker(ctx, method, req, reply, cc, opts...)
 		})(ctx, req)
 		return err
 	}
 }
 
-func streamClientInterceptor(mw []middleware.Middleware) grpc.StreamClientInterceptor {
+func streamClientInterceptor(opt *option) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		rsp, err := middleware.ComposeMiddleware(mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+		if len(opt.filters) > 0 {
+			ctx = context.WithValue(ctx, utils.Filter, opt.filters)
+		}
+		rsp, err := middleware.ComposeMiddleware(opt.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return streamer(ctx, desc, cc, method, opts...)
 		})(ctx, nil)
 		// TODO
 		return rsp.(grpc.ClientStream), err
-	}
-}
-
-func ClientTimeout(time time.Duration) middleware.Middleware {
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			var cancel context.CancelFunc
-			if _, ok := ctx.Deadline(); !ok && time > 0 {
-				ctx, cancel = context.WithTimeout(ctx, time)
-			}
-			if cancel != nil {
-				defer cancel()
-			}
-			return handler(ctx, req)
-		}
 	}
 }
 
@@ -90,7 +85,8 @@ func UnaryClientTrace(opts ...tracing.Option) grpc.UnaryClientInterceptor {
 			trace.WithSpanKind(tracer.Kind()),
 			trace.WithAttributes(attrs...),
 		}
-		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: md}, opt...)
+		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: &md}, opt...)
+		ctx = metadata.NewOutgoingContext(ctx, md)
 		defer span.End()
 		err := invoker(ctx, method, req, reply, cc, opts...)
 		if err != nil {
@@ -136,7 +132,8 @@ func StreamClientTrace(opts ...tracing.Option) grpc.StreamClientInterceptor {
 			trace.WithSpanKind(tracer.Kind()),
 			trace.WithAttributes(attrs...),
 		}
-		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: md}, opt...)
+		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: &md}, opt...)
+		ctx = metadata.NewOutgoingContext(ctx, md)
 		defer span.End()
 		s, err := streamer(ctx, desc, cc, method, opts...)
 		if err != nil {

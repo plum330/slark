@@ -1,12 +1,16 @@
 package trace
 
-import "google.golang.org/grpc/metadata"
+import (
+	"go.opentelemetry.io/otel/propagation"
+	"google.golang.org/grpc/metadata"
+)
 
-// tracer通过Inject和Extract将span context信息注入到carrier,以便在跨进程的span间传递,
-// 跨进程传递自定义k/v通过Baggage实现
+// propagator Carrier
+
+var _ propagation.TextMapCarrier = (*Carrier)(nil)
 
 type Carrier struct {
-	MD metadata.MD
+	MD *metadata.MD
 }
 
 func (c *Carrier) Get(key string) string {
@@ -22,8 +26,8 @@ func (c *Carrier) Set(key, value string) {
 }
 
 func (c *Carrier) Keys() []string {
-	out := make([]string, 0, len(c.MD))
-	for key := range c.MD {
+	out := make([]string, 0, len(*c.MD))
+	for key := range *c.MD {
 		out = append(out, key)
 	}
 	return out

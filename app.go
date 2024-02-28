@@ -119,6 +119,7 @@ func (a *App) Run() error {
 func (a *App) service() (*registry.Service, error) {
 	var err error
 	u := &url.URL{}
+	endpoint := make([]string, 0, len(a.servers))
 	for _, srv := range a.servers {
 		ep, ok := srv.(transport.Endpoint)
 		if !ok {
@@ -128,12 +129,13 @@ func (a *App) service() (*registry.Service, error) {
 		if err != nil {
 			return nil, err
 		}
+		endpoint = append(endpoint, u.String())
 	}
 	svc := &registry.Service{
 		ID:       uuid.New().String(),
 		Name:     a.name,
 		Version:  a.version,
-		Endpoint: u.String(),
+		Endpoint: endpoint,
 		Metadata: a.metadata,
 	}
 	return svc, nil

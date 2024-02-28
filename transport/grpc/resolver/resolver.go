@@ -52,7 +52,7 @@ func (p *parser) update(svc []*registry.Service) {
 	var ok bool
 	// filter
 	for _, s := range svc {
-		u, err := url.Parse(s.Endpoint)
+		u, err := url.Parse(s.Endpoint[0])
 		if err != nil {
 			continue
 		}
@@ -68,7 +68,7 @@ func (p *parser) update(svc []*registry.Service) {
 	}
 	addresses := make([]resolver.Address, 0, len(svc))
 	for _, s := range set {
-		u, _ := url.Parse(s.Endpoint)
+		u, _ := url.Parse(s.Endpoint[0])
 		addr := resolver.Address{
 			ServerName: s.Name,
 			//BalancerAttributes 字段可以用来保存负载均衡策略所使用的信息，比如权重信息

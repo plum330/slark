@@ -6,7 +6,7 @@ type Service struct {
 	ID       string            `json:"id"`
 	Name     string            `json:"name"`
 	Version  string            `json:"version"`
-	Endpoint string            `json:"endpoint"`
+	Endpoint []string          `json:"endpoint"` // http / grpc
 	Metadata map[string]string `json:"metadata"`
 }
 
