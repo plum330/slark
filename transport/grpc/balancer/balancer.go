@@ -12,7 +12,7 @@ import (
 
 const LoadBalancer = "load_balancer"
 
-var pickerBuilder = &builder{Builder: algo.NewRandomBuilder()}
+var pickerBuilder = &builder{Builder: algo.NewWRRBuilder()}
 
 func SetBuilder(builder node.Builder) {
 	pickerBuilder.Builder = builder
@@ -34,17 +34,21 @@ func (b *builder) Build(info base.PickerBuildInfo) balancer.Picker {
 	if len(info.ReadySCs) == 0 {
 		return base.NewErrPicker(balancer.ErrNoSubConnAvailable)
 	}
-	nodes := make([]*node.Node, 0, len(info.ReadySCs))
+	nodes := make([]node.Node, 0, len(info.ReadySCs))
 	for sc, si := range info.ReadySCs {
-		svc, ok := si.Address.Attributes.Value("attributes").(*registry.Service)
-		n := &node.Node{
+		svc, ok := si.Address.Attributes.Value(utils.ServiceRegistry).(*registry.Service)
+		n := &node.WrappedNode{
 			Addr:    si.Address.Addr,
 			SubConn: sc,
 		}
 		if ok {
-			n.Service = svc
-			weight, _ := svc.Metadata[utils.Weight]
-			n.Weight, _ = strconv.Atoi(weight)
+			w, o := svc.Metadata[utils.Weight]
+			if o {
+				weight, err := strconv.ParseInt(w, 10, 64)
+				if err == nil {
+					n.Weight = &weight
+				}
+			}
 		}
 		nodes = append(nodes, n)
 	}
@@ -66,10 +70,8 @@ func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
 		return balancer.PickResult{}, err
 	}
 	result := balancer.PickResult{
-		SubConn: n.SubConn,
-		Done: func(info balancer.DoneInfo) {
-			// TODO
-		},
+		SubConn: n.(*node.WrappedNode).SubConn,
+		Done:    func(info balancer.DoneInfo) {},
 	}
 	return result, nil
 }

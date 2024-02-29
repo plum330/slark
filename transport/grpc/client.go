@@ -31,7 +31,8 @@ type option struct {
 	keepalive Keepalive
 	strategy  []Strategy
 	addr      string
-	subset    int
+	size      int // subset size
+	subset    resolver.Subset
 	insecure  bool
 	tm        time.Duration
 	tls       *tls.Config
@@ -57,7 +58,13 @@ func WithAddr(addr string) Option {
 	}
 }
 
-func WithSubset(subset int) Option {
+func WithSize(size int) Option {
+	return func(o *option) {
+		o.size = size
+	}
+}
+
+func WithSubset(subset resolver.Subset) Option {
 	return func(o *option) {
 		o.subset = subset
 	}
@@ -147,6 +154,8 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 			},
 		},
 		insecure: true,
+		size:     32,
+		subset:   &resolver.Shuffle{},
 	}
 	for _, o := range opts {
 		o(opt)
@@ -196,7 +205,7 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	}
 
 	if opt.discovery != nil {
-		dialOpts = append(dialOpts, grpc.WithResolvers(resolver.NewBuilder(opt.discovery)))
+		dialOpts = append(dialOpts, grpc.WithResolvers(resolver.NewBuilder(opt.discovery, resolver.WithInsecure(opt.insecure), resolver.WithSize(opt.size), resolver.WithSubSet(opt.subset))))
 	}
 	return grpc.DialContext(ctx, opt.addr, dialOpts...)
 }

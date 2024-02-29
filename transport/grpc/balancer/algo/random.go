@@ -16,7 +16,7 @@ func NewRandomBuilder() node.Builder {
 	return &node.BalancerBuilder{Picker: &random{r: rand.New(rand.NewSource(time.Now().UnixNano()))}}
 }
 
-func (r *random) Pick(_ context.Context, nodes []*node.Node) (*node.Node, error) {
+func (r *random) Pick(_ context.Context, nodes []node.WeightedNode) (node.WeightedNode, error) {
 	if len(nodes) == 0 {
 		return nil, errors.New("no available node")
 	}

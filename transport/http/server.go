@@ -14,6 +14,7 @@ import (
 	"github.com/go-slark/slark/transport/http/handler"
 	"net"
 	"net/http"
+	"net/url"
 )
 
 type Server struct {
@@ -139,6 +140,18 @@ func (s *Server) listen() error {
 	}
 	s.listener = l
 	return nil
+}
+
+func (s *Server) Endpoint() (*url.URL, error) {
+	host, err := utils.ParseAddr(s.listener, s.address)
+	if err != nil {
+		return nil, err
+	}
+	u := &url.URL{
+		Scheme: utils.Scheme("http", s.tls == nil),
+		Host:   host,
+	}
+	return u, nil
 }
 
 func (s *Server) Start() error {

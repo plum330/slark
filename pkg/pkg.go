@@ -3,9 +3,11 @@ package utils
 import (
 	"context"
 	"encoding/json"
-	"github.com/go-slark/slark/errors"
+	"errors"
 	"github.com/google/uuid"
 	"net"
+	"net/url"
+	"strconv"
 )
 
 const (
@@ -17,7 +19,6 @@ const (
 	Token         = "x-token"
 	Claims        = "x-jwt"
 	UserAgent     = "User-Agent"
-	Target        = "x-target"
 	Method        = "x-method"
 	Path          = "x-path"
 	Code          = "x-code"
@@ -33,8 +34,9 @@ const (
 	Accept      = "Accept"
 	Application = "application"
 
-	Discovery = "discovery"
-	Weight    = "weight"
+	Discovery       = "discovery"
+	Weight          = "weight"
+	ServiceRegistry = "service-registry"
 )
 
 func BuildRequestID() string {
@@ -44,7 +46,7 @@ func BuildRequestID() string {
 func ParseToken(ctx context.Context, v interface{}) error {
 	token, ok := ctx.Value(Token).(string)
 	if !ok {
-		return errors.BadRequest(errors.TokenError, errors.TokenError)
+		return errors.New("invalid token")
 	}
 	return json.Unmarshal([]byte(token), v)
 }
@@ -62,12 +64,44 @@ func SnakeCase(s string) string {
 	}
 	return string(b)
 }
-func FilterValidIP() ([]net.IP, error) {
-	is, err := net.Interfaces()
-	if err != nil {
-		return nil, err
+
+func Scheme(scheme string, insecure bool) string {
+	if !insecure {
+		return scheme
+	}
+	return scheme + "s"
+}
+
+func ParseValidAddr(addr []string, scheme string) (string, error) {
+	for _, v := range addr {
+		u, err := url.Parse(v)
+		if err != nil {
+			return "", err
+		}
+		if u.Scheme == scheme {
+			return u.Host, nil
+		}
+	}
+	return "", nil
+}
+
+func ParseAddr(ln net.Listener, address string) (string, error) {
+	_, port, err := net.SplitHostPort(address)
+	if err != nil && ln == nil {
+		return "", err
+	}
+	if ln != nil {
+		tcpAddr, ok := ln.Addr().(*net.TCPAddr)
+		if !ok {
+			return "", errors.New("parse addr error")
+		}
+		port = strconv.Itoa(tcpAddr.Port)
 	}
 
+	is, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
 	index := int(^uint(0) >> 1)
 	ips := make([]net.IP, 0)
 	for _, i := range is {
@@ -104,7 +138,11 @@ func FilterValidIP() ([]net.IP, error) {
 			}
 		}
 	}
-	return ips, nil
+	var host string
+	if len(ips) != 0 {
+		host = net.JoinHostPort(ips[len(ips)-1].String(), port)
+	}
+	return host, nil
 }
 
 func Delete[T comparable](ss []T, elem T) []T {

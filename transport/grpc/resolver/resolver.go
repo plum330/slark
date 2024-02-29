@@ -3,20 +3,21 @@ package resolver
 import (
 	"context"
 	"github.com/go-slark/slark/errors"
-	"github.com/go-slark/slark/pkg/subset"
+	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
-	"net/url"
 	"time"
 )
 
 type parser struct {
-	watcher registry.Watcher
-	ctx     context.Context
-	cancel  context.CancelFunc
-	cc      resolver.ClientConn
-	subset  int
+	watcher  registry.Watcher
+	ctx      context.Context
+	cancel   context.CancelFunc
+	cc       resolver.ClientConn
+	ss       Subset
+	size     int
+	insecure bool
 }
 
 func (p *parser) ResolveNow(opts resolver.ResolveNowOptions) {}
@@ -52,30 +53,29 @@ func (p *parser) update(svc []*registry.Service) {
 	var ok bool
 	// filter
 	for _, s := range svc {
-		u, err := url.Parse(s.Endpoint[0])
+		addr, err := utils.ParseValidAddr(s.Endpoint, utils.Scheme("grpc", p.insecure))
 		if err != nil {
 			continue
 		}
-		_, ok = mp[u.Host]
+		_, ok = mp[addr]
 		if ok {
 			continue
 		}
-		mp[u.Host] = struct{}{}
+		mp[addr] = struct{}{}
 		set = append(set, s)
 	}
-	if p.subset > 0 {
-		set = subset.Subset(set, p.subset)
+	if p.ss != nil && p.size > 0 {
+		set = p.ss.Subset(set, p.size)
 	}
 	addresses := make([]resolver.Address, 0, len(svc))
 	for _, s := range set {
-		u, _ := url.Parse(s.Endpoint[0])
-		addr := resolver.Address{
+		addr, _ := utils.ParseValidAddr(s.Endpoint, utils.Scheme("grpc", p.insecure))
+		address := resolver.Address{
 			ServerName: s.Name,
-			//BalancerAttributes 字段可以用来保存负载均衡策略所使用的信息，比如权重信息
-			Attributes: attributes.New("attributes", s),
-			Addr:       u.Host,
+			Attributes: attributes.New(utils.ServiceRegistry, s),
+			Addr:       addr,
 		}
-		addresses = append(addresses, addr)
+		addresses = append(addresses, address)
 	}
 	if len(addresses) == 0 {
 		return

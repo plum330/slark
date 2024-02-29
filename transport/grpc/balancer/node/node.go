@@ -3,74 +3,104 @@ package node
 import (
 	"context"
 	"errors"
-	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc/balancer"
 	"sync"
 )
 
-type Node struct {
+type WrappedNode struct {
 	Addr    string
-	Weight  int
-	Service *registry.Service
+	Weight  *int64
 	SubConn balancer.SubConn
 }
 
-// Set default
+type Node interface {
+	InitialWeight() *int64
+	Address() string
+}
+
+func (w *WrappedNode) Address() string {
+	return w.Addr
+}
+
+func (w *WrappedNode) InitialWeight() *int64 {
+	return w.Weight
+}
+
+type WeightedNode interface {
+	Node
+	Weight() int64
+	//Unwrap() Node
+}
+
 type Set struct {
-	nodes  []*Node
-	l      sync.RWMutex
-	picker Picker
+	nodes   []WeightedNode
+	l       sync.RWMutex
+	picker  Picker
+	builder WeightedBuilder
 }
 
 type Picker interface {
-	Pick(ctx context.Context, nodes []*Node) (*Node, error)
+	Pick(ctx context.Context, nodes []WeightedNode) (WeightedNode, error)
 }
 
 type Builder interface {
 	Build() Balancer
 }
 
-type Filter func(ctx context.Context, nodes []*Node) []*Node
+type Filter func(ctx context.Context, nodes []Node) []Node
 
 type Balancer interface {
-	Save(nodes []*Node)
-	Pick(ctx context.Context, fs ...Filter) (*Node, error)
+	Save(nodes []Node)
+	Pick(ctx context.Context, fs ...Filter) (Node, error)
 }
 
-func (s *Set) Save(nodes []*Node) {
+func (s *Set) Save(nodes []Node) {
+	wn := make([]WeightedNode, 0, len(nodes))
+	for _, node := range nodes {
+		wn = append(wn, s.builder.Build(node))
+	}
 	s.l.Lock()
-	defer s.l.Unlock()
-	s.nodes = nodes
+	s.nodes = wn
+	s.l.Unlock()
 }
 
-func (s *Set) Pick(ctx context.Context, filters ...Filter) (*Node, error) {
-	nodes := make([]*Node, 0)
+func (s *Set) Pick(ctx context.Context, filters ...Filter) (Node, error) {
+	var nodes []WeightedNode
 	s.l.RLock()
 	nodes = s.nodes
 	s.l.RUnlock()
 	if len(nodes) == 0 {
 		return nil, errors.New("no available node")
 	}
-	cNodes := make([]*Node, 0, len(nodes))
+	ns := make([]Node, 0, len(nodes))
+	for _, node := range nodes {
+		ns = append(ns, node)
+	}
 	for _, filter := range filters {
-		cNodes = filter(ctx, nodes)
+		ns = filter(ctx, ns)
+	}
+	cn := make([]WeightedNode, len(ns))
+	for idx, n := range ns {
+		cn[idx] = n.(WeightedNode)
 	}
 	if len(filters) == 0 {
-		cNodes = nodes
+		cn = nodes
 	}
-	if len(cNodes) == 0 {
+	if len(cn) == 0 {
 		return nil, errors.New("no available node")
 	}
 	// balance algo
-	return s.picker.Pick(ctx, cNodes)
+	return s.picker.Pick(ctx, cn)
 }
 
 type BalancerBuilder struct {
 	Picker
+	WeightedBuilder
 }
 
 func (b *BalancerBuilder) Build() Balancer {
 	return &Set{
-		picker: b.Picker,
+		picker:  b.Picker,
+		builder: b.WeightedBuilder,
 	}
 }

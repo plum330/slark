@@ -3,7 +3,6 @@ package grpc
 import (
 	"context"
 	"crypto/tls"
-	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
@@ -17,7 +16,6 @@ import (
 	"google.golang.org/grpc/reflection"
 	"net"
 	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -99,35 +97,15 @@ func (s *Server) listen() error {
 }
 
 func (s *Server) Endpoint() (*url.URL, error) {
-	_, port, err := net.SplitHostPort(s.address)
-	if err != nil && s.listener == nil {
-		return nil, err
-	}
-	if s.listener != nil {
-		tcpAddr, ok := s.listener.Addr().(*net.TCPAddr)
-		if !ok {
-			return nil, errors.InternalServer("not tcp addr", "NOT_TCP_ADDR")
-		}
-
-		port = strconv.Itoa(tcpAddr.Port)
-	}
-
-	ips, err := utils.FilterValidIP()
+	host, err := utils.ParseAddr(s.listener, s.address)
 	if err != nil {
 		return nil, err
 	}
-	u := &url.URL{Scheme: s.scheme("grpc")}
-	if len(ips) != 0 {
-		u.Host = net.JoinHostPort(ips[len(ips)-1].String(), port)
+	u := &url.URL{
+		Scheme: utils.Scheme("grpc", s.tls == nil),
+		Host:   host,
 	}
 	return u, nil
-}
-
-func (s *Server) scheme(scheme string) string {
-	if s.tls == nil {
-		return scheme
-	}
-	return scheme + "s"
 }
 
 type ServerOption func(*Server)

@@ -166,20 +166,28 @@ func (kp *KafkaProducer) monitor() {
 	}(kp.AsyncProducer)
 }
 
-func InitKafkaProducer(conf *ProducerConf, opts ...tracing.Option) *KafkaProducer {
+func NewKafkaProducer(conf *ProducerConf, opts ...tracing.Option) (*KafkaProducer, error) {
+	sp, err := newSyncProducer(conf)
+	if err != nil {
+		return nil, err
+	}
+	ap, err := newAsyncProducer(conf)
+	if err != nil {
+		return nil, err
+	}
 	kp := &KafkaProducer{
-		SyncProducer:  newSyncProducer(conf),
-		AsyncProducer: newAsyncProducer(conf),
+		SyncProducer:  sp,
+		AsyncProducer: ap,
 		Logger:        logger.GetLogger(),
 	}
 	if conf.TraceEnable {
 		kp.Tracer = tracing.NewTracer(trace.SpanKindProducer, opts...)
 	}
 	kp.monitor()
-	return kp
+	return kp, nil
 }
 
-func newSyncProducer(conf *ProducerConf) sarama.SyncProducer {
+func newSyncProducer(conf *ProducerConf) (sarama.SyncProducer, error) {
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.RequiredAcks(conf.Ack) // WaitForAll
 	config.Producer.Partitioner = sarama.NewHashPartitioner
@@ -188,21 +196,17 @@ func newSyncProducer(conf *ProducerConf) sarama.SyncProducer {
 	//config.Producer.Return.Errors = true     // default true
 	version, err := sarama.ParseKafkaVersion(conf.Version)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	config.Version = version
 	if err = config.Validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	producer, err := sarama.NewSyncProducer(conf.Brokers, config)
-	if err != nil {
-		panic(err)
-	}
-	return producer
+	return sarama.NewSyncProducer(conf.Brokers, config)
 }
 
-func newAsyncProducer(conf *ProducerConf) sarama.AsyncProducer {
+func newAsyncProducer(conf *ProducerConf) (sarama.AsyncProducer, error) {
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.RequiredAcks(conf.Ack) // WaitForAll
 	config.Producer.Partitioner = sarama.NewHashPartitioner
@@ -211,18 +215,14 @@ func newAsyncProducer(conf *ProducerConf) sarama.AsyncProducer {
 	config.Producer.Return.Errors = conf.ReturnErrors     // true / false
 	version, err := sarama.ParseKafkaVersion(conf.Version)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	config.Version = version
 	if err = config.Validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	producer, err := sarama.NewAsyncProducer(conf.Brokers, config)
-	if err != nil {
-		panic(err)
-	}
-	return producer
+	return sarama.NewAsyncProducer(conf.Brokers, config)
 }
 
 type Consume interface {
@@ -241,9 +241,13 @@ type KafkaConsumerGroup struct {
 	worker   chan struct{}
 }
 
-func InitKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) *KafkaConsumerGroup {
+func NewKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) (*KafkaConsumerGroup, error) {
+	cg, err := newConsumerGroup(conf)
+	if err != nil {
+		return nil, err
+	}
 	k := &KafkaConsumerGroup{
-		ConsumerGroup: newConsumerGroup(conf),
+		ConsumerGroup: cg,
 		Topics:        conf.Topics,
 		Logger:        logger.GetLogger(),
 		handlers:      make(map[string]Consume),
@@ -253,10 +257,10 @@ func InitKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) *KafkaCo
 		k.Tracer = tracing.NewTracer(trace.SpanKindConsumer, opts...)
 	}
 	k.Context, k.CancelFunc = context.WithCancel(context.TODO())
-	return k
+	return k, nil
 }
 
-func newConsumerGroup(conf *ConsumerGroupConf) sarama.ConsumerGroup {
+func newConsumerGroup(conf *ConsumerGroupConf) (sarama.ConsumerGroup, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Offsets.Initial = conf.Initial              // -2:sarama.OffsetOldest -1:sarama.OffsetNewest
 	config.Consumer.Offsets.AutoCommit.Enable = conf.AutoCommit // false
@@ -264,19 +268,14 @@ func newConsumerGroup(conf *ConsumerGroupConf) sarama.ConsumerGroup {
 	config.Consumer.Return.Errors = conf.ReturnErrors // true
 	version, err := sarama.ParseKafkaVersion(conf.Version)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	config.Version = version
 	if err = config.Validate(); err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	consumerGroup, err := sarama.NewConsumerGroup(conf.Brokers, conf.GroupID, config)
-	if err != nil {
-		panic(err)
-	}
-
-	return consumerGroup
+	return sarama.NewConsumerGroup(conf.Brokers, conf.GroupID, config)
 }
 
 func (kc *KafkaConsumerGroup) Register(topic string, handler Consume) {
