@@ -295,14 +295,14 @@ func (kc *KafkaConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, cla
 		m := msg
 		ctx := context.Background()
 		var span trace.Span
-		routine.Go(ctx, func() {
+		routine.GoSafe(ctx, func() {
 			defer func() {
 				<-kc.worker
 			}()
 			if kc.Tracer != nil {
 				opt := []trace.SpanStartOption{
 					trace.WithSpanKind(kc.Kind()),
-					trace.WithAttributes(attribute.String("mq_topic", msg.Topic), attribute.String("mq_key", string(msg.Key)), attribute.String("mq_msg", string(msg.Value))),
+					trace.WithAttributes(attribute.String("mq_topic", m.Topic), attribute.String("mq_key", string(m.Key)), attribute.String("mq_msg", string(m.Value))),
 				}
 				md := make(metadata.MD)
 				ctx, span = kc.Tracer.Start(ctx, "kafka group consume", &tracing.Carrier{MD: &md}, opt...)
@@ -315,7 +315,7 @@ func (kc *KafkaConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, cla
 				}
 			}
 		})
-		sess.MarkMessage(msg, "")
+		sess.MarkMessage(m, "")
 	}
 	return nil
 }

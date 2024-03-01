@@ -5,6 +5,7 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/pkg/routine"
 	"github.com/go-slark/slark/transport/http/handler"
 	"github.com/gorilla/websocket"
 	"github.com/rs/xid"
@@ -109,10 +110,10 @@ func (s *Server) Handler(hf func(s *Session)) {
 		if result != nil {
 			session.SetCtx(result)
 		}
-		go func(sess *Session) {
-			hf(sess)
-			sess.ch <- struct{}{}
-		}(session)
+		routine.GoSafe(context.TODO(), func() {
+			hf(session)
+			session.ch <- struct{}{}
+		})
 		if s.after != nil {
 			<-session.ch
 			err = s.after(session)
@@ -229,18 +230,17 @@ func (s *Server) NewSession(w http.ResponseWriter, r *http.Request) (*Session, e
 	}
 	sess := &Session{}
 	sess.set(ws, s)
-	go sess.read()
-	go sess.write()
+	routine.GoSafe(context.TODO(), func() {
+		sess.read()
+	})
+	routine.GoSafe(context.TODO(), func() {
+		sess.write()
+	})
 	return sess, nil
 }
 
 func (s *Session) read() {
-	defer func() {
-		if e := recover(); e != nil {
-			s.logger.Log(s.context, logger.ErrorLevel, map[string]interface{}{"error": e}, "ws read exception")
-		}
-		s.Close()
-	}()
+	defer s.Close()
 	s.SetHandler()
 	s.conn.SetReadLimit(s.opt.rLimit)
 	_ = s.conn.SetReadDeadline(time.Now().Add(s.opt.hbInterval))
@@ -269,9 +269,6 @@ func (s *Session) read() {
 func (s *Session) write() {
 	tk := time.NewTicker(s.opt.hbInterval * 4 / 5)
 	defer func() {
-		if e := recover(); e != nil {
-			s.logger.Log(s.context, logger.ErrorLevel, map[string]interface{}{"error": e}, "ws write exception")
-		}
 		tk.Stop()
 		s.Close()
 	}()

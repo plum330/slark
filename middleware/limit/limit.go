@@ -20,8 +20,7 @@ func WithLimiter(limiter limiter.Limiter) Option {
 }
 
 func Limit(opts ...Option) middleware.Middleware {
-	// TODO
-	l := &Limiter{limiter: nil}
+	l := &Limiter{limiter: &limiter.Noop{}}
 	for _, opt := range opts {
 		opt(l)
 	}

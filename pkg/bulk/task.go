@@ -1,8 +1,6 @@
 package bulk
 
 import (
-	"context"
-	"github.com/go-slark/slark/pkg/routine"
 	"os"
 	"os/signal"
 	"sync/atomic"
@@ -100,7 +98,5 @@ func (t *Task) do(tasks []any) {
 	if len(tasks) == 0 {
 		return
 	}
-	routine.Go(context.TODO(), func() {
-		t.tasker.Do(tasks)
-	})
+	t.tasker.Do(tasks)
 }
