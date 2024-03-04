@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"github.com/go-slark/slark/transport"
+	"github.com/go-slark/slark/transport/grpc/balancer/node"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -27,6 +28,11 @@ type Transport struct {
 	operation string
 	req       Carrier
 	rsp       Carrier
+	filters   []node.Filter
+}
+
+func (t *Transport) Filter() []node.Filter {
+	return t.filters
 }
 
 func (t *Transport) Kind() string {

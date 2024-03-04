@@ -289,15 +289,8 @@ func (l *logEntity) Levels() []logrus.Level {
 }
 
 func (l *logEntity) Fire(entry *logrus.Entry) error {
-	ctx := entry.Context
-	if ctx == nil {
-		return nil
-	}
-	traceID, ok := ctx.Value(utils.RayID).(string)
-	if !ok {
-		traceID = trace.ExtractTraceID(ctx)
-	}
-	entry.Data[utils.RayID] = traceID
+	traceID := trace.ExtractTraceID(entry.Context)
+	entry.Data[utils.TraceID] = traceID
 	entry.Data[utils.LogName] = l.name
 
 	// 日志统一分发 es mongo kafka

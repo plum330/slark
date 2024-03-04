@@ -55,20 +55,15 @@ func (kp *KafkaProducer) Close() {
 }
 
 func (kp *KafkaProducer) SyncSend(ctx context.Context, topic, key string, msg []byte) error {
-	traceID, ok := ctx.Value(utils.RayID).(string)
-	var spanID string
-	if !ok {
-		traceID = tracing.ExtractTraceID(ctx)
-		spanID = tracing.ExtractSpanID(ctx)
-	}
-
+	traceID := tracing.ExtractTraceID(ctx)
+	spanID := tracing.ExtractSpanID(ctx)
 	pm := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(msg),
 		Key:   sarama.StringEncoder(key),
 		Headers: []sarama.RecordHeader{
 			{
-				Key:   sarama.ByteEncoder(utils.RayID),
+				Key:   sarama.ByteEncoder(utils.TraceID),
 				Value: sarama.ByteEncoder(traceID),
 			},
 			{
@@ -97,20 +92,15 @@ func (kp *KafkaProducer) SyncSend(ctx context.Context, topic, key string, msg []
 }
 
 func (kp *KafkaProducer) AsyncSend(ctx context.Context, topic, key string, msg []byte) error {
-	traceID, ok := ctx.Value(utils.RayID).(string)
-	var spanID string
-	if !ok {
-		traceID = tracing.ExtractTraceID(ctx)
-		spanID = tracing.ExtractSpanID(ctx)
-	}
-
+	traceID := tracing.ExtractTraceID(ctx)
+	spanID := tracing.ExtractSpanID(ctx)
 	pm := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.ByteEncoder(msg),
 		Key:   sarama.StringEncoder(key),
 		Headers: []sarama.RecordHeader{
 			{
-				Key:   sarama.ByteEncoder(utils.RayID),
+				Key:   sarama.ByteEncoder(utils.TraceID),
 				Value: sarama.ByteEncoder(traceID),
 			},
 			{

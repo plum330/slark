@@ -12,7 +12,7 @@ import (
 
 const (
 	LogName       = "log-dumper"
-	RayID         = "x-request-id"
+	TraceID       = "x-trace-id"
 	SpanID        = "x-span-id"
 	Authorization = "x-authorization"
 	Header        = "x-header"
@@ -24,7 +24,6 @@ const (
 	Code          = "x-code"
 	RequestVars   = "x-request-vars"
 	Extension     = "x-extension"
-	Filter        = "x-filter"
 
 	XForwardedMethod = "X-Forwarded-Method"
 	XForwardedURI    = "X-Forwarded-Uri"
@@ -154,4 +153,14 @@ func Delete[T comparable](ss []T, elem T) []T {
 		}
 	}
 	return ss[:index]
+}
+
+func BitOne(n int64) []int {
+	bits := make([]int, 64)
+	for i := 0; i < 64; i++ {
+		if (n>>i)&1 == 1 {
+			bits[i] = 1
+		}
+	}
+	return bits
 }

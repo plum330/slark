@@ -7,7 +7,6 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/pkg"
 	"net/http"
 )
 
@@ -47,9 +46,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 				_ = ctx.Error(err)
 			}
 			rsp := &Response{
-				Header: &Header{
-					RayID: reqCtx.Value(utils.RayID),
-				},
+				Header: &Header{},
 			}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message

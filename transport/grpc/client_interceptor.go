@@ -5,6 +5,7 @@ import (
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
 	tracing "github.com/go-slark/slark/pkg/trace"
+	"github.com/go-slark/slark/transport"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
@@ -19,9 +20,13 @@ import (
 
 func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-		if len(opt.filters) > 0 {
-			ctx = context.WithValue(ctx, utils.Filter, opt.filters)
+		trans := &Transport{
+			operation: method,
+			req:       Carrier{},
+			rsp:       Carrier{},
+			filters:   opt.filters,
 		}
+		ctx = transport.NewClientContext(ctx, trans)
 		if opt.tm > 0 {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, opt.tm)
@@ -36,9 +41,13 @@ func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 
 func streamClientInterceptor(opt *option) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-		if len(opt.filters) > 0 {
-			ctx = context.WithValue(ctx, utils.Filter, opt.filters)
+		trans := &Transport{
+			operation: method,
+			req:       Carrier{},
+			rsp:       Carrier{},
+			filters:   opt.filters,
 		}
+		ctx = transport.NewClientContext(ctx, trans)
 		rsp, err := middleware.ComposeMiddleware(opt.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return streamer(ctx, desc, cc, method, opts...)
 		})(ctx, nil)
@@ -47,15 +56,15 @@ func streamClientInterceptor(opt *option) grpc.StreamClientInterceptor {
 	}
 }
 
-func ClientRayID() middleware.Middleware {
+func ClientTraceID() middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			value := ctx.Value(utils.RayID)
+			value := ctx.Value(utils.TraceID)
 			requestID, ok := value.(string)
 			if !ok || len(requestID) == 0 {
 				requestID = utils.BuildRequestID()
 			}
-			ctx = metadata.AppendToOutgoingContext(ctx, utils.RayID, requestID)
+			ctx = metadata.AppendToOutgoingContext(ctx, utils.TraceID, requestID)
 			return handler(ctx, req)
 		}
 	}

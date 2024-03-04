@@ -3,6 +3,8 @@ package balancer
 import (
 	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
+	"github.com/go-slark/slark/transport"
+	"github.com/go-slark/slark/transport/grpc"
 	"github.com/go-slark/slark/transport/grpc/balancer/algo"
 	"github.com/go-slark/slark/transport/grpc/balancer/node"
 	"google.golang.org/grpc/balancer"
@@ -64,7 +66,14 @@ type picker struct {
 }
 
 func (p *picker) Pick(info balancer.PickInfo) (balancer.PickResult, error) {
-	filters, _ := info.Ctx.Value(utils.Filter).([]node.Filter)
+	var filters []node.Filter
+	trans, ok := transport.FromClientContext(info.Ctx)
+	if ok {
+		t, k := trans.(*grpc.Transport)
+		if k {
+			filters = t.Filter()
+		}
+	}
 	n, err := p.Balancer.Pick(info.Ctx, filters...)
 	if err != nil {
 		return balancer.PickResult{}, err

@@ -2,8 +2,9 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-slark/slark/middleware"
-	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/transport"
 	"net/http"
 )
 
@@ -44,15 +45,12 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 		return
 	}
 	c.ctx = c.req.Context()
-	for _, hk := range c.router.srv.headers {
-		hv := c.req.Header.Get(hk)
-		if len(hv) == 0 {
-			continue
-		}
-		c.ctx = context.WithValue(c.ctx, hk, hv)
+	trans := &Transport{
+		operation: fmt.Sprintf("%s %s", req.Method, req.URL.Path),
+		req:       Carrier(c.req.Header),
+		rsp:       Carrier{},
 	}
-	c.ctx = context.WithValue(c.ctx, utils.Method, req.Method)
-	c.ctx = context.WithValue(c.ctx, utils.Path, req.URL.Path)
+	c.ctx = transport.NewServerContext(c.ctx, trans)
 }
 
 func (c *Context) Context() context.Context {

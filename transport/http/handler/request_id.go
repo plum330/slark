@@ -30,7 +30,7 @@ func BuildRequestID(opts ...RIDOption) Middleware {
 		Builder: func() string {
 			return utils.BuildRequestID()
 		},
-		RequestID: utils.RayID,
+		RequestID: utils.TraceID,
 	}
 	for _, opt := range opts {
 		opt(cfg)

@@ -7,7 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/breaker"
 	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
@@ -27,6 +29,8 @@ type Server struct {
 	network  string
 	address  string
 	basePath string
+	maxConn  int
+	builtin  int64
 	Engine   *gin.Engine
 	logger   logger.Logger
 	Codecs   *Codecs
@@ -83,6 +87,18 @@ func BasePath(bassPath string) ServerOption {
 	}
 }
 
+func MaxConn(size int) ServerOption {
+	return func(s *Server) {
+		s.maxConn = size
+	}
+}
+
+func Builtin(builtin int64) ServerOption {
+	return func(s *Server) {
+		s.builtin = builtin
+	}
+}
+
 func ErrorCodec(ec func(*http.Request, http.ResponseWriter, error)) ServerOption {
 	return func(server *Server) {
 		server.Codecs.errorEncoder = ec
@@ -101,17 +117,15 @@ func Headers(headers []string) ServerOption {
 	}
 }
 
-// trace -> log -> metric -> breaker -> recovery -> ...
-
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
 		network:  "tcp",
-		address:  "0.0.0.0:0",
+		address:  "0.0.0.0:8080",
 		basePath: "/",
 		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
-		handlers: []handler.Middleware{handler.BuildRequestID(), handler.CORS()},
+		handlers: []handler.Middleware{},
 		Engine:   engine,
 		Codecs: &Codecs{
 			bodyDecoder:  RequestBodyDecoder,
@@ -121,13 +135,32 @@ func NewServer(opts ...ServerOption) *Server {
 			errorEncoder: ErrorEncoder,
 		},
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
+		mws:     []middleware.Middleware{validate.Validate()},
+		builtin: 0x63, // low -> high
+	}
+	srv.handlers = []handler.Middleware{
+		handler.Trace(),
+		handler.WrapMiddleware(logging.Log(srv.logger)),
+		handler.WrapMiddleware(metrics.Metrics()),
+		handler.MaxConn(srv.logger, srv.maxConn),
+		handler.WrapMiddleware(breaker.Breaker()),
+		// shedding
+		handler.WrapMiddleware(recovery.Recovery(srv.logger)),
+		handler.CORS(),
 	}
 	srv.Handler = srv.Engine
 	srv.TLSConfig = srv.tls
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate(), recovery.Recovery(srv.logger))
+	handlers := make([]handler.Middleware, 0)
+	bits := utils.BitOne(srv.builtin)
+	for k, v := range bits {
+		if v == 1 {
+			handlers = append(handlers, srv.handlers[k])
+		}
+	}
+	srv.handlers = handlers
 	srv.Handler = handler.ComposeMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv

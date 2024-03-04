@@ -28,6 +28,7 @@ type Server struct {
 	logger   logger.Logger
 	network  string
 	address  string
+	timeout  time.Duration
 	mw       []middleware.Middleware
 	opts     []grpc.ServerOption
 	unary    []grpc.UnaryServerInterceptor
@@ -37,7 +38,7 @@ type Server struct {
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		network: "tcp",
-		address: "0.0.0.0:0",
+		address: "0.0.0.0:9090",
 		health:  health.NewServer(),
 		logger:  logger.GetLogger(),
 	}
@@ -119,6 +120,12 @@ func Network(network string) ServerOption {
 func Address(addr string) ServerOption {
 	return func(s *Server) {
 		s.address = addr
+	}
+}
+
+func Timeout(tm time.Duration) ServerOpt {
+	return func(s *serverOpt) {
+		s.timeout = tm
 	}
 }
 
