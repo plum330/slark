@@ -19,7 +19,7 @@ type EngineConfig struct {
 func Engine(cfg *EngineConfig) ServerOption {
 	return func(server *Server) {
 		gin.SetMode(cfg.Mode)
-		engine := server.Engine
+		engine := server.engine
 		if cfg.FileSystem != nil {
 			engine.StaticFS(fmt.Sprintf("%s/doc", cfg.BasePath), cfg.FileSystem)
 		}

@@ -40,9 +40,10 @@ func Propagator(propagator propagation.TextMapPropagator) Option {
 
 func NewTracer(kind trace.SpanKind, opts ...Option) *Tracer {
 	tracer := &Tracer{
-		provider:   otel.GetTracerProvider(),
+		provider:   otel.GetTracerProvider(), // SetTracerProvider
 		propagator: propagation.NewCompositeTextMapPropagator(propagation.Baggage{}, propagation.TraceContext{}),
 		kind:       kind,
+		name:       "slark",
 	}
 	for _, opt := range opts {
 		opt(tracer)

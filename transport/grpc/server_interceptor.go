@@ -5,11 +5,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
-	tracing "github.com/go-slark/slark/pkg/trace"
 	"github.com/go-slark/slark/transport"
-	ocodes "go.opentelemetry.io/otel/codes"
-	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
-	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -20,8 +16,6 @@ import (
 	"sync"
 	"time"
 )
-
-//trace -> recovery -> stat -> metric -> breaker -> ...
 
 func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -144,31 +138,6 @@ func ServerAuthZ() middleware.Middleware {
 	}
 }
 
-func UnaryServerTrace(opts ...tracing.Option) grpc.UnaryServerInterceptor {
-	tracer := tracing.NewTracer(trace.SpanKindServer, opts...)
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			md = metadata.MD{}
-		}
-		name, attrs := attribute(ctx, info.FullMethod)
-		opt := []trace.SpanStartOption{
-			trace.WithSpanKind(tracer.Kind()),
-			trace.WithAttributes(attrs...),
-		}
-		ctx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: &md}, opt...)
-		ctx = metadata.NewIncomingContext(ctx, md)
-		defer span.End()
-		resp, err := handler(ctx, req)
-		s, _ := status.FromError(err)
-		if err != nil {
-			span.SetStatus(code(s))
-		}
-		span.SetAttributes(semconv.RPCGRPCStatusCodeKey.String(s.Code().String()))
-		return resp, err
-	}
-}
-
 type ssWrapper struct {
 	grpc.ServerStream
 	ctx    context.Context
@@ -194,46 +163,4 @@ func (w *ssWrapper) RecvMsg(m interface{}) error {
 
 func (w *ssWrapper) Context() context.Context {
 	return w.ctx
-}
-
-func StreamServerTrace(opts ...tracing.Option) grpc.StreamServerInterceptor {
-	tracer := tracing.NewTracer(trace.SpanKindServer, opts...)
-	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		ctx := ss.Context()
-		md, ok := metadata.FromIncomingContext(ctx)
-		if !ok {
-			md = metadata.MD{}
-		}
-		name, attrs := attribute(ctx, info.FullMethod)
-		opt := []trace.SpanStartOption{
-			trace.WithSpanKind(tracer.Kind()),
-			trace.WithAttributes(attrs...),
-		}
-		cx, span := tracer.Start(ctx, name, &tracing.Carrier{MD: &md}, opt...)
-		ctx = metadata.NewIncomingContext(ctx, md)
-		defer span.End()
-		err := handler(srv, &ssWrapper{ServerStream: ss, ctx: cx})
-		if err != nil {
-			s, _ := status.FromError(err)
-			span.SetStatus(code(s))
-			span.SetAttributes(semconv.RPCGRPCStatusCodeKey.String(s.Code().String()))
-		} else {
-			span.SetAttributes(semconv.RPCGRPCStatusCodeKey.String(codes.OK.String()))
-		}
-		return err
-	}
-}
-
-func code(status *status.Status) (ocodes.Code, string) {
-	switch status.Code() {
-	case codes.Unknown,
-		codes.DeadlineExceeded,
-		codes.Unimplemented,
-		codes.Internal,
-		codes.Unavailable,
-		codes.DataLoss:
-		return ocodes.Error, status.Message()
-	default:
-		return ocodes.Unset, ""
-	}
 }

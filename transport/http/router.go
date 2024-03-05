@@ -37,10 +37,10 @@ func (r *Router) Handle(method, path string, hf HandlerFunc) {
 		c := r.pool.Get().(*Context)
 		c.Set(ctx.Request, ctx.Writer)
 		if err := hf(c); err != nil {
-			r.srv.Codecs.errorEncoder(ctx.Request, c.w, err)
+			r.srv.codecs.errorEncoder(ctx.Request, c.w, err)
 		}
 		c.Set(nil, nil)
 		r.pool.Put(c)
 	}
-	r.srv.Engine.Handle(method, r.srv.basePath+path, handler)
+	r.srv.engine.Handle(method, r.srv.basePath+path, handler)
 }

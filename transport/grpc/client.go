@@ -5,10 +5,17 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/metrics"
+	"github.com/go-slark/slark/middleware/tracing"
+	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
 	"github.com/go-slark/slark/transport/grpc/balancer/node"
 	"github.com/go-slark/slark/transport/grpc/resolver"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,7 +41,9 @@ type option struct {
 	size      int // subset size
 	subset    resolver.Subset
 	insecure  bool
+	builtin   int64
 	tm        time.Duration
+	logger    logger.Logger
 	tls       *tls.Config
 	opts      []grpc.DialOption
 	unary     []grpc.UnaryClientInterceptor
@@ -52,9 +61,21 @@ func WithTimeout(tm time.Duration) Option {
 	}
 }
 
+func WithLogger(l logger.Logger) Option {
+	return func(o *option) {
+		o.logger = l
+	}
+}
+
 func WithAddr(addr string) Option {
 	return func(o *option) {
 		o.addr = addr
+	}
+}
+
+func WithBuiltin(builtin int64) Option {
+	return func(o *option) {
+		o.builtin = builtin
 	}
 }
 
@@ -156,11 +177,18 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		insecure: true,
 		size:     32,
 		subset:   &resolver.Shuffle{},
+		builtin:  0x03,
+	}
+	opt.mw = []middleware.Middleware{
+		tracing.Trace(trace.SpanKindClient),
+		logging.Log(opt.logger),
+		metrics.Metrics(),
+		breaker.Breaker(),
 	}
 	for _, o := range opts {
 		o(opt)
 	}
-
+	opt.mw = utils.Filter(opt.mw, opt.builtin)
 	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt)}
 	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt)}
 	if len(opt.unary) > 0 {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/transport"
 	"github.com/go-slark/slark/transport/http/handler"
 	"net"
 	"net/http"
@@ -31,9 +33,9 @@ type Server struct {
 	basePath string
 	maxConn  int
 	builtin  int64
-	Engine   *gin.Engine
+	engine   *gin.Engine
 	logger   logger.Logger
-	Codecs   *Codecs
+	codecs   *Codecs
 	headers  []string
 }
 
@@ -101,13 +103,13 @@ func Builtin(builtin int64) ServerOption {
 
 func ErrorCodec(ec func(*http.Request, http.ResponseWriter, error)) ServerOption {
 	return func(server *Server) {
-		server.Codecs.errorEncoder = ec
+		server.codecs.errorEncoder = ec
 	}
 }
 
 func RspCodec(rc func(*http.Request, http.ResponseWriter, interface{}) error) ServerOption {
 	return func(server *Server) {
-		server.Codecs.rspEncoder = rc
+		server.codecs.rspEncoder = rc
 	}
 }
 
@@ -126,8 +128,8 @@ func NewServer(opts ...ServerOption) *Server {
 		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
 		handlers: []handler.Middleware{},
-		Engine:   engine,
-		Codecs: &Codecs{
+		engine:   engine,
+		codecs: &Codecs{
 			bodyDecoder:  RequestBodyDecoder,
 			varsDecoder:  RequestVarsDecoder,
 			queryDecoder: RequestQueryDecoder,
@@ -148,19 +150,13 @@ func NewServer(opts ...ServerOption) *Server {
 		handler.WrapMiddleware(recovery.Recovery(srv.logger)),
 		handler.CORS(),
 	}
-	srv.Handler = srv.Engine
+	srv.engine.Use(srv.handle())
+	srv.Handler = srv.engine
 	srv.TLSConfig = srv.tls
 	for _, o := range opts {
 		o(srv)
 	}
-	handlers := make([]handler.Middleware, 0)
-	bits := utils.BitOne(srv.builtin)
-	for k, v := range bits {
-		if v == 1 {
-			handlers = append(handlers, srv.handlers[k])
-		}
-	}
-	srv.handlers = handlers
+	srv.handlers = utils.Filter(srv.handlers, srv.builtin)
 	srv.Handler = handler.ComposeMiddleware(srv.Handler, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
@@ -185,6 +181,18 @@ func (s *Server) Endpoint() (*url.URL, error) {
 		Host:   host,
 	}
 	return u, nil
+}
+
+func (s *Server) handle() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		req := c.Request
+		trans := &Transport{
+			operation: fmt.Sprintf("%s %s", req.Method, req.URL.Path),
+			req:       Carrier(req.Header),
+			rsp:       Carrier{},
+		}
+		c.Request = req.WithContext(transport.NewServerContext(req.Context(), trans))
+	}
 }
 
 func (s *Server) Start() error {

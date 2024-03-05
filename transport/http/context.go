@@ -2,9 +2,7 @@ package http
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/transport"
 	"net/http"
 )
 
@@ -41,16 +39,6 @@ func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	c.w = &wrapper{
 		rw: rsp,
 	}
-	if c.req == nil || rsp == nil {
-		return
-	}
-	c.ctx = c.req.Context()
-	trans := &Transport{
-		operation: fmt.Sprintf("%s %s", req.Method, req.URL.Path),
-		req:       Carrier(c.req.Header),
-		rsp:       Carrier{},
-	}
-	c.ctx = transport.NewServerContext(c.ctx, trans)
 }
 
 func (c *Context) Context() context.Context {
@@ -62,17 +50,17 @@ func (c *Context) Handle(handler middleware.Handler) middleware.Handler {
 }
 
 func (c *Context) ShouldBind(v interface{}) error {
-	return c.router.srv.Codecs.bodyDecoder(c.req, v)
+	return c.router.srv.codecs.bodyDecoder(c.req, v)
 }
 
 func (c *Context) ShouldBindURI(v interface{}) error {
-	return c.router.srv.Codecs.varsDecoder(c.req, v)
+	return c.router.srv.codecs.varsDecoder(c.req, v)
 }
 
 func (c *Context) ShouldBindQuery(v interface{}) error {
-	return c.router.srv.Codecs.queryDecoder(c.req, v)
+	return c.router.srv.codecs.queryDecoder(c.req, v)
 }
 
 func (c *Context) Result(v interface{}) error {
-	return c.router.srv.Codecs.rspEncoder(c.req, c.w, v)
+	return c.router.srv.codecs.rspEncoder(c.req, c.w, v)
 }

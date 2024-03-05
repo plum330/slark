@@ -5,9 +5,13 @@ import (
 	"crypto/tls"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
@@ -28,6 +32,7 @@ type Server struct {
 	logger   logger.Logger
 	network  string
 	address  string
+	builtin  int64
 	timeout  time.Duration
 	mw       []middleware.Middleware
 	opts     []grpc.ServerOption
@@ -41,16 +46,19 @@ func NewServer(opts ...ServerOption) *Server {
 		address: "0.0.0.0:9090",
 		health:  health.NewServer(),
 		logger:  logger.GetLogger(),
+		builtin: 0x13,
+	}
+	srv.mw = []middleware.Middleware{
+		tracing.Trace(trace.SpanKindServer),
+		recovery.Recovery(srv.logger),
+		// stat
+		metrics.Metrics(),
+		breaker.Breaker(),
+		validate.Validate(),
 	}
 	for _, o := range opts {
 		o(srv)
 	}
-
-	if len(srv.mw) == 0 {
-		srv.mw = make([]middleware.Middleware, 0)
-	}
-	srv.mw = append(srv.mw, validate.Validate(), recovery.Recovery(srv.logger))
-
 	var grpcOpts []grpc.ServerOption
 	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
 	srv.stream = append(srv.stream, srv.streamServerInterceptor())
@@ -144,6 +152,12 @@ func TLS(tls *tls.Config) ServerOption {
 func Logger(logger logger.Logger) ServerOption {
 	return func(server *Server) {
 		server.logger = logger
+	}
+}
+
+func Builtin(builtin int64) ServerOption {
+	return func(server *Server) {
+		server.builtin = builtin
 	}
 }
 
