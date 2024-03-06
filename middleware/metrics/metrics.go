@@ -3,6 +3,9 @@ package metrics
 import (
 	"context"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/transport"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"net/http"
 	"time"
 )
 
@@ -105,22 +108,35 @@ func WithHistogram(h Histogram) Options {
 }
 
 func Metrics(opts ...Options) middleware.Middleware {
-	o := &Option{}
+	o := &Option{
+		counter:   NewCounter(),
+		histogram: NewHistogram(),
+	}
 	for _, opt := range opts {
 		opt(o)
 	}
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
+			var kind, operation string
+			trans, ok := transport.FromServerContext(ctx)
+			if ok {
+				kind = trans.Kind()
+				operation = trans.Operate()
+			}
 			start := time.Now()
 			rsp, err := handler(ctx, req)
-			// path method from ctx, code from error
 			if o.histogram != nil {
-				o.histogram.Values().Observe(float64(time.Since(start).Milliseconds()))
+				o.histogram.Values(kind, operation).Observe(float64(time.Since(start).Milliseconds()))
 			}
 			if o.counter != nil {
-				o.counter.Values().Inc()
+				o.counter.Values(kind, operation).Inc()
 			}
 			return rsp, err
 		}
 	}
+}
+
+func init() {
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":8081", nil)
 }
