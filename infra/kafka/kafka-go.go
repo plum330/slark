@@ -3,21 +3,21 @@ package kafka
 import (
 	"context"
 	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/pkg/bulk"
 	"github.com/segmentio/kafka-go"
+	"github.com/zeromicro/go-zero/core/executors"
 	"time"
 )
 
 type Producer struct {
-	kw     *kafka.Writer
-	topic  string
-	tasker *bulk.Chunk
+	kw       *kafka.Writer
+	topic    string
+	executor *executors.ChunkExecutor
 }
 
 type option struct {
-	autoTopicCreate bool
-	interval        time.Duration
-	chunkSize       int
+	allowAutoTopicCreation bool
+	interval               time.Duration
+	chunkSize              int
 }
 
 type Option func(*option)
@@ -34,9 +34,9 @@ func Interval(interval time.Duration) Option {
 	}
 }
 
-func AutoTopicCrate(auto bool) Option {
+func AutoTopicCreation(auto bool) Option {
 	return func(o *option) {
-		o.autoTopicCreate = auto
+		o.allowAutoTopicCreation = auto
 	}
 }
 
@@ -55,13 +55,13 @@ func NewProducer(addr []string, topic string, opts ...Option) *Producer {
 	for _, opt := range opts {
 		opt(&o)
 	}
-	kw.AllowAutoTopicCreation = o.autoTopicCreate
-	co := make([]bulk.ChunkOption, 0)
+	kw.AllowAutoTopicCreation = o.allowAutoTopicCreation
+	co := make([]executors.ChunkOption, 0)
 	if o.chunkSize > 0 {
-		co = append(co, bulk.ChunkMax(o.chunkSize))
+		co = append(co, executors.WithChunkBytes(o.chunkSize))
 	}
 	if o.interval > 0 {
-		co = append(co, bulk.ChunkInterval(o.interval))
+		co = append(co, executors.WithFlushInterval(o.interval))
 	}
 	f := func(tasks []any) {
 		messages := make([]kafka.Message, 0, len(tasks))
@@ -80,7 +80,7 @@ func NewProducer(addr []string, topic string, opts ...Option) *Producer {
 			logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": err}, "batch produce kafka msg error")
 		}
 	}
-	producer.tasker = bulk.NewChunk(f)
+	producer.executor = executors.NewChunkExecutor(f, co...)
 	return producer
 }
 
@@ -89,15 +89,15 @@ func (p *Producer) Produce(ctx context.Context, k, v []byte) error {
 		Key:   k,
 		Value: v,
 	}
-	if p.tasker != nil {
-		p.tasker.Submit(msg, len(v))
+	if p.executor != nil {
+		return p.executor.Add(msg, len(v))
 	}
 	return p.kw.WriteMessages(ctx, msg)
 }
 
 func (p *Producer) Close() error {
-	if p.tasker != nil {
-		p.tasker.Force()
+	if p.executor != nil {
+		p.executor.Flush()
 	}
 	return p.kw.Close()
 }

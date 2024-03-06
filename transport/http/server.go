@@ -12,6 +12,8 @@ import (
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/shedding"
+	"github.com/go-slark/slark/middleware/stat"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/transport"
@@ -138,16 +140,18 @@ func NewServer(opts ...ServerOption) *Server {
 		},
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
 		mws:     []middleware.Middleware{validate.Validate()},
-		builtin: 0x63, // low -> high
+		maxConn: 10000,
+		builtin: 0x143, // low -> high
 	}
 	srv.handlers = []handler.Middleware{
 		handler.Trace(),
-		handler.WrapMiddleware(logging.Log(srv.logger)),
+		handler.WrapMiddleware(logging.Log(logging.ServerLog, srv.logger)),
 		handler.WrapMiddleware(metrics.Metrics()),
 		handler.MaxConn(srv.logger, srv.maxConn),
 		handler.WrapMiddleware(breaker.Breaker()),
-		// shedding
+		handler.WrapMiddleware(shedding.Shedding(transport.HTTP, 900)), // 0 - 1000
 		handler.WrapMiddleware(recovery.Recovery(srv.logger)),
+		handler.WrapMiddleware(stat.Stat(transport.HTTP)),
 		handler.CORS(),
 	}
 	srv.engine.Use(srv.handle())

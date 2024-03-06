@@ -7,4 +7,3 @@ golang的主要并发模型
 3. Future
 4. MapReduce模型
 */
-// mr ?

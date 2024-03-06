@@ -1,4 +1,4 @@
-package limiter
+package limit
 
 type Noop struct{}
 

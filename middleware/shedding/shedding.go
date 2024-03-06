@@ -1,52 +1,33 @@
 package shedding
 
 import (
-	"sync/atomic"
-	"time"
+	"context"
+	"github.com/go-slark/slark/errors"
+	"github.com/go-slark/slark/middleware"
+	"github.com/zeromicro/go-zero/core/load"
 )
 
-// cpu max_conn overload
-
-type Shedding struct {
-	name   string
-	time   time.Duration
-	total  atomic.Int64
-	pass   atomic.Int64
-	reject atomic.Int64
-}
-
-func NewShedding(name string) *Shedding {
-	s := &Shedding{
-		name:   name,
-		time:   time.Minute,
-		total:  atomic.Int64{},
-		pass:   atomic.Int64{},
-		reject: atomic.Int64{},
+func Shedding(kind string, threshold int64) middleware.Middleware {
+	sheddingStat := load.NewSheddingStat(kind)
+	shedding := load.NewAdaptiveShedder(load.WithCpuThreshold(threshold))
+	return func(handler middleware.Handler) middleware.Handler {
+		return func(ctx context.Context, req interface{}) (interface{}, error) {
+			sheddingStat.IncrementTotal()
+			promise, err := shedding.Allow()
+			if err != nil {
+				sheddingStat.IncrementDrop()
+				err = errors.ServerUnavailable(err.Error(), err.Error())
+				return nil, err
+			}
+			defer func() {
+				if errors.Is(err, context.DeadlineExceeded) || errors.IsServerUnavailable(err) {
+					promise.Fail()
+				} else {
+					sheddingStat.IncrementPass()
+					promise.Pass()
+				}
+			}()
+			return handler(ctx, req)
+		}
 	}
-	go s.run()
-	return s
-}
-
-func (s *Shedding) reset() {
-
-}
-
-func (s *Shedding) run() {
-	tk := time.NewTicker(s.time)
-	defer tk.Stop()
-	for range tk.C {
-		s.reset()
-	}
-}
-
-func (s *Shedding) IncrTotal() {
-	s.total.Add(1)
-}
-
-func (s *Shedding) IncrPass() {
-	s.pass.Add(1)
-}
-
-func (s *Shedding) IncrReject() {
-	s.reject.Add(1)
 }

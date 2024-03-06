@@ -22,14 +22,14 @@ func Trace(kind trace.SpanKind, opts ...tracing.Option) middleware.Middleware {
 				ok    bool
 				md    metadata.MD
 			)
-			kind := tracer.Kind()
+			kind = tracer.Kind()
 			if kind == trace.SpanKindClient {
 				md, ok = metadata.FromOutgoingContext(ctx)
 				if !ok {
 					md = metadata.MD{}
 				}
 				trans, ok = transport.FromClientContext(ctx)
-			} else {
+			} else if kind == trace.SpanKindServer {
 				md, ok = metadata.FromIncomingContext(ctx)
 				if !ok {
 					md = metadata.MD{}

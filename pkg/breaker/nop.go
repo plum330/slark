@@ -6,10 +6,6 @@ func (n *Noop) Allow() error {
 	return nil
 }
 
-func (n *Noop) Fail() {
+func (n *Noop) Fail(reason string) {}
 
-}
-
-func (n *Noop) Succeed() {
-
-}
+func (n *Noop) Succeed() {}

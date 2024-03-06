@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/pkg/limiter"
+	"github.com/go-slark/slark/pkg/limit"
 	"net/http"
 )
 
@@ -14,7 +14,7 @@ func MaxConn(l logger.Logger, n int) Middleware {
 			return handler
 		}
 	}
-	pool := limiter.NewPool(n)
+	pool := limit.NewPool(n)
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			allow := pool.Use()

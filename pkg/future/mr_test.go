@@ -2,6 +2,7 @@ package future
 
 import (
 	"errors"
+	"github.com/zeromicro/go-zero/core/mr"
 	"testing"
 )
 
@@ -12,11 +13,11 @@ func TestParallel(t *testing.T) {
 			input <- d
 		}
 	}
-	splitter := func(item int, w Writer[int], cancel func(error)) {
+	splitter := func(item int, w mr.Writer[int], cancel func(error)) {
 		// 填入item
 		w.Write(item)
 	}
-	merger := func(ch chan int, w Writer[int], cancel func(error)) {
+	merger := func(ch <-chan int, w mr.Writer[int], cancel func(error)) {
 		var sum int
 		for item := range ch {
 			sum += item
@@ -43,13 +44,13 @@ func TestParallelWithCancel(t *testing.T) {
 			input <- d
 		}
 	}
-	splitter := func(item int, w Writer[int], cancel func(error)) {
+	splitter := func(item int, w mr.Writer[int], cancel func(error)) {
 		cancel(nil)
 		//cancel(errors.New("split cancel"))
 		// 填入item
 		w.Write(item)
 	}
-	merger := func(ch chan int, w Writer[int], cancel func(error)) {
+	merger := func(ch <-chan int, w mr.Writer[int], cancel func(error)) {
 		cancel(errors.New("merge cancel"))
 		var sum int
 		for item := range ch {
