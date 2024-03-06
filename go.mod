@@ -32,6 +32,8 @@ require (
 	go.etcd.io/etcd/client/v3 v3.5.12
 	go.mongodb.org/mongo-driver v1.14.0
 	go.opentelemetry.io/otel v1.21.0
+	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.19.0
+	go.opentelemetry.io/otel/sdk v1.21.0
 	go.opentelemetry.io/otel/trace v1.21.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/text v0.14.0
@@ -84,7 +86,7 @@ require (
 	github.com/google/cel-go v0.18.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect

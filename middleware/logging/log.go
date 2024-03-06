@@ -29,7 +29,6 @@ func Log(lt int, l logger.Logger) middleware.Middleware {
 			if !ok {
 				return handler(ctx, req)
 			}
-
 			kind := trans.Kind()
 			operation := trans.Operate()
 			start := time.Now()

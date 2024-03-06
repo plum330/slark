@@ -141,27 +141,37 @@ func NewServer(opts ...ServerOption) *Server {
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
 		mws:     []middleware.Middleware{validate.Validate()},
 		maxConn: 10000,
-		builtin: 0x143, // low -> high
+		builtin: 0x14b, // low -> high
 	}
-	srv.handlers = []handler.Middleware{
-		handler.Trace(),
-		handler.WrapMiddleware(logging.Log(logging.ServerLog, srv.logger)),
-		handler.WrapMiddleware(metrics.Metrics()),
-		handler.MaxConn(srv.logger, srv.maxConn),
-		handler.WrapMiddleware(breaker.Breaker()),
-		handler.WrapMiddleware(shedding.Shedding(transport.HTTP, 900)), // 0 - 1000
-		handler.WrapMiddleware(recovery.Recovery(srv.logger)),
-		handler.WrapMiddleware(stat.Stat(transport.HTTP)),
-		handler.CORS(),
-	}
-	srv.engine.Use(srv.handle())
-	srv.Handler = srv.engine
-	srv.TLSConfig = srv.tls
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.handlers = utils.Filter(srv.handlers, srv.builtin)
-	srv.Handler = handler.ComposeMiddleware(srv.Handler, srv.handlers...)
+	if len(srv.handlers) == 0 {
+		srv.handlers = []handler.Middleware{
+			handler.Trace(),
+			handler.WrapMiddleware(logging.Log(logging.ServerLog, srv.logger)),
+			handler.WrapMiddleware(metrics.Metrics()),
+			handler.MaxConn(srv.logger, srv.maxConn),
+			handler.WrapMiddleware(breaker.Breaker()),
+			handler.WrapMiddleware(shedding.Shedding(transport.HTTP, 900)), // 0 - 1000
+			handler.WrapMiddleware(recovery.Recovery(srv.logger)),
+			handler.WrapMiddleware(stat.Stat(transport.HTTP)),
+			handler.CORS(),
+		}
+	}
+	srv.TLSConfig = srv.tls
+	srv.handlers = append([]handler.Middleware{func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			trans := &Transport{
+				operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+				req:       Carrier(r.Header),
+				rsp:       Carrier{},
+			}
+			r = r.WithContext(transport.NewServerContext(r.Context(), trans))
+			handler.ServeHTTP(w, r)
+		})
+	}}, utils.Filter(srv.handlers, srv.builtin)...)
+	srv.Handler = handler.ComposeMiddleware(srv.engine, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
 }
@@ -187,16 +197,8 @@ func (s *Server) Endpoint() (*url.URL, error) {
 	return u, nil
 }
 
-func (s *Server) handle() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		req := c.Request
-		trans := &Transport{
-			operation: fmt.Sprintf("%s %s", req.Method, req.URL.Path),
-			req:       Carrier(req.Header),
-			rsp:       Carrier{},
-		}
-		c.Request = req.WithContext(transport.NewServerContext(req.Context(), trans))
-	}
+func (s *Server) Engine() *gin.Engine {
+	return s.engine
 }
 
 func (s *Server) Start() error {

@@ -20,7 +20,8 @@ func MaxConn(l logger.Logger, n int) Middleware {
 			allow := pool.Use()
 			if !allow {
 				w.WriteHeader(http.StatusServiceUnavailable)
-				l.Log(context.TODO(), logger.WarnLevel, map[string]interface{}{"req": fmt.Sprintf("%+v", r)}, "cur conn overload")
+				l.Log(context.TODO(), logger.WarnLevel, map[string]interface{}{"req": fmt.Sprintf("%+v", r)}, "conn overload")
+				return
 			}
 			defer func() {
 				err := pool.Back()
