@@ -18,7 +18,7 @@ func TestFetch(t *testing.T) {
 		Addr:     "192.168.3.13:2379",
 		Password: "CtHHQNbFkXpw33ew",
 		DB:       10,
-	}), sf.NewGroup(), redis.Nil)
+	}), sf.NewSingFlight(), redis.Nil)
 	v := &Value{}
 	err := c.Fetch(context.TODO(), "fetch", 5*time.Minute, v, func(value any) error {
 		vv, _ := value.(*Value)
@@ -37,7 +37,7 @@ func TestFetchStr(t *testing.T) {
 		Addr:     "192.168.3.13:2379",
 		Password: "CtHHQNbFkXpw33ew",
 		DB:       10,
-	}), sf.NewGroup(), redis.Nil)
+	}), sf.NewSingFlight(), redis.Nil)
 	var v string
 	err := c.Fetch(context.TODO(), "fetch_str", 5*time.Minute, &v, func(value any) error {
 		*value.(*string) = "+++++++++++++++++"
@@ -55,7 +55,7 @@ func TestFetchIndexStr(t *testing.T) {
 		Addr:     "192.168.3.13:2379",
 		Password: "CtHHQNbFkXpw33ew",
 		DB:       10,
-	}), sf.NewGroup(), redis.Nil)
+	}), sf.NewSingFlight(), redis.Nil)
 	var str string
 	err := c.FetchIndex(context.TODO(), "fetch_index_str", 3*time.Minute, func(k any) string {
 		return fmt.Sprintf("fetch_primary_str:%v", k)
@@ -79,7 +79,7 @@ func TestFetchIndex(t *testing.T) {
 		Addr:     "192.168.3.13:2379",
 		Password: "CtHHQNbFkXpw33ew",
 		DB:       10,
-	}), sf.NewGroup(), redis.Nil)
+	}), sf.NewSingFlight(), redis.Nil)
 	value := &Value{}
 	err := c.FetchIndex(context.TODO(), "fetch_index", 3*time.Minute, func(k any) string {
 		return fmt.Sprintf("fetch_primary:%v", k)

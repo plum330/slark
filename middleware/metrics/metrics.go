@@ -2,10 +2,10 @@ package metrics
 
 import (
 	"context"
+	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/transport"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -27,11 +27,11 @@ type VecOptions struct {
 
 func newVecOptions() *VecOptions {
 	return &VecOptions{
-		name:       "vec",
+		name:       "name",
 		help:       "help",
-		namespace:  "server",
-		subSystem:  "request",
-		labels:     []string{"method", "path", "code"},
+		namespace:  "ns",
+		subSystem:  "ss",
+		labels:     []string{"kind", "operation", "code", "reason"},
 		buckets:    []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.250, 0.5, 1},
 		objectives: nil,
 	}
@@ -107,36 +107,46 @@ func WithHistogram(h Histogram) Options {
 	}
 }
 
-func Metrics(opts ...Options) middleware.Middleware {
+func Metrics(st middleware.SubType, opts ...Options) middleware.Middleware {
 	o := &Option{
-		counter:   NewCounter(),
-		histogram: NewHistogram(),
+		counter:   NewCounter(Name("duration")),
+		histogram: NewHistogram(Labels([]string{"kind", "operation"})),
 	}
 	for _, opt := range opts {
 		opt(o)
 	}
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			var kind, operation string
-			trans, ok := transport.FromServerContext(ctx)
-			if ok {
-				kind = trans.Kind()
-				operation = trans.Operate()
+			var (
+				kind, operation, reason string
+				ok                      bool
+				code                    int32
+				trans                   transport.Transporter
+			)
+			if st == middleware.Client {
+				trans, ok = transport.FromClientContext(ctx)
+			} else if st == middleware.Server {
+				trans, ok = transport.FromServerContext(ctx)
 			}
+			if !ok {
+				return handler(ctx, req)
+			}
+			kind = trans.Kind()
+			operation = trans.Operate()
 			start := time.Now()
 			rsp, err := handler(ctx, req)
+			if err != nil {
+				e := errors.FromError(err)
+				reason = e.Reason
+				code = e.Code
+			}
 			if o.histogram != nil {
-				o.histogram.Values(kind, operation).Observe(float64(time.Since(start).Milliseconds()))
+				o.histogram.Values(kind, operation).Observe(time.Since(start).Seconds())
 			}
 			if o.counter != nil {
-				o.counter.Values(kind, operation).Inc()
+				o.counter.Values(kind, operation, strconv.Itoa(int(code)), reason).Inc()
 			}
 			return rsp, err
 		}
 	}
-}
-
-func init() {
-	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":8081", nil)
 }

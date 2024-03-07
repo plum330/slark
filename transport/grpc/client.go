@@ -181,8 +181,8 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	}
 	opt.mw = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindClient),
-		logging.Log(logging.ClientLog, opt.logger),
-		metrics.Metrics(),
+		logging.Log(middleware.Client, opt.logger),
+		metrics.Metrics(middleware.Client),
 		breaker.Breaker(),
 	}
 	for _, o := range opts {

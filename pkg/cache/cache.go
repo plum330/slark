@@ -12,11 +12,11 @@ import (
 
 type Cache struct {
 	rocks *rockscache.Client
-	sf    *sf.Group
+	sf    *sf.SingleFlight
 	err   error // not found error
 }
 
-func New(redis *redis.Client, sf *sf.Group, err error) *Cache {
+func New(redis *redis.Client, sf *sf.SingleFlight, err error) *Cache {
 	return &Cache{
 		rocks: rockscache.NewClient(redis, rockscache.NewDefaultOptions()),
 		sf:    sf,
@@ -25,7 +25,7 @@ func New(redis *redis.Client, sf *sf.Group, err error) *Cache {
 }
 
 func (c *Cache) Fetch(ctx context.Context, key string, expire time.Duration, v any, fn func(any) error) error {
-	data, err, cache := c.sf.Do(key, func() (interface{}, error) {
+	data, err := c.sf.Do(key, func() (interface{}, error) {
 		return c.rocks.Fetch2(ctx, key, expire, func() (string, error) {
 			err := fn(v)
 			if err != nil {
@@ -40,9 +40,6 @@ func (c *Cache) Fetch(ctx context.Context, key string, expire time.Duration, v a
 	})
 	if err != nil {
 		return err
-	}
-	if cache {
-		return nil
 	}
 	return json.Unmarshal([]byte(data.(string)), v)
 }

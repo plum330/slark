@@ -149,8 +149,8 @@ func NewServer(opts ...ServerOption) *Server {
 	if len(srv.handlers) == 0 {
 		srv.handlers = []handler.Middleware{
 			handler.Trace(),
-			handler.WrapMiddleware(logging.Log(logging.ServerLog, srv.logger)),
-			handler.WrapMiddleware(metrics.Metrics()),
+			handler.WrapMiddleware(logging.Log(middleware.Server, srv.logger)),
+			handler.WrapMiddleware(metrics.Metrics(middleware.Server)),
 			handler.MaxConn(srv.logger, srv.maxConn),
 			handler.WrapMiddleware(breaker.Breaker()),
 			handler.WrapMiddleware(shedding.Shedding(transport.HTTP, 900)), // 0 - 1000

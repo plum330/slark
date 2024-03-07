@@ -8,6 +8,7 @@ import (
 )
 
 func Shedding(kind string, threshold int64) middleware.Middleware {
+	load.DisableLog()
 	sheddingStat := load.NewSheddingStat(kind)
 	shedding := load.NewAdaptiveShedder(load.WithCpuThreshold(threshold))
 	return func(handler middleware.Handler) middleware.Handler {

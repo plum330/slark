@@ -9,21 +9,16 @@ import (
 	"time"
 )
 
-const (
-	ClientLog = iota + 1
-	ServerLog
-)
-
-func Log(lt int, l logger.Logger) middleware.Middleware {
+func Log(st middleware.SubType, l logger.Logger) middleware.Middleware {
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			var (
 				trans transport.Transporter
 				ok    bool
 			)
-			if lt == ClientLog {
+			if st == middleware.Client {
 				trans, ok = transport.FromClientContext(ctx)
-			} else if lt == ServerLog {
+			} else if st == middleware.Server {
 				trans, ok = transport.FromServerContext(ctx)
 			}
 			if !ok {
@@ -37,7 +32,7 @@ func Log(lt int, l logger.Logger) middleware.Middleware {
 				"start":     start.Format(time.RFC3339),
 				"operation": operation,
 				"kind":      kind,
-				"type":      lt,
+				"type":      st,
 			}
 			l.Log(ctx, logger.DebugLevel, fields, "request log")
 			rsp, err := handler(ctx, req)
@@ -46,7 +41,7 @@ func Log(lt int, l logger.Logger) middleware.Middleware {
 				"end":       time.Now().Format(time.RFC3339),
 				"operation": operation,
 				"kind":      kind,
-				"type":      lt,
+				"type":      st,
 			}
 			var level uint
 			if err != nil {

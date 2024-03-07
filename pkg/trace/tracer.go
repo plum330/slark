@@ -2,7 +2,7 @@ package trace
 
 import (
 	"context"
-	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/noop"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
@@ -44,7 +44,7 @@ func Propagator(propagator propagation.TextMapPropagator) Option {
 }
 
 func NewTracer(kind trace.SpanKind, opts ...Option) *Tracer {
-	exporter, _ := stdouttrace.New(stdouttrace.WithWriter(utils.NoopWriter()))
+	exporter, _ := stdouttrace.New(stdouttrace.WithWriter(noop.Writer()))
 	tracer := &Tracer{
 		provider: sdktrace.NewTracerProvider(
 			sdktrace.WithResource(resource.NewWithAttributes(

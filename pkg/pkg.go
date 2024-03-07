@@ -5,9 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/google/uuid"
-	"io"
 	"net"
 	"net/url"
 	"os"
@@ -242,14 +240,4 @@ func ReadLines(fn string, opts ...LineReadOpt) ([]string, error) {
 		lines = append(lines, line)
 	}
 	return lines, s.Err()
-}
-
-type noop struct{}
-
-func (n *noop) Write([]byte) (int, error) {
-	return 0, nil
-}
-
-func NoopWriter() io.Writer {
-	return &noop{}
 }
