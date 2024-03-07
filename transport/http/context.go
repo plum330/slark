@@ -3,42 +3,24 @@ package http
 import (
 	"context"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/transport/http/handler"
 	"net/http"
 )
-
-type wrapper struct {
-	rw   http.ResponseWriter
-	code int
-	err  error // propagate error for middleware
-}
-
-func (w *wrapper) WriteHeader(code int) {
-	w.code = code
-	w.rw.WriteHeader(code)
-}
-
-func (w *wrapper) Header() http.Header {
-	return w.rw.Header()
-}
-
-func (w *wrapper) Write(p []byte) (int, error) {
-	return w.rw.Write(p)
-}
 
 type Context struct {
 	router *Router
 	req    *http.Request
 	rsp    http.ResponseWriter
 	ctx    context.Context
-	w      *wrapper
+	w      *handler.Wrapper
 }
 
 func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	c.req = req
 	c.rsp = rsp
-	c.w = &wrapper{
-		rw: rsp,
-	}
+	w := &handler.Wrapper{}
+	w.SetResponseWriter(rsp)
+	c.w = w
 }
 
 func (c *Context) Context() context.Context {
