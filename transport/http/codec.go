@@ -7,7 +7,6 @@ import (
 	"github.com/go-slark/slark/encoding/json"
 	"github.com/go-slark/slark/errors"
 	utils "github.com/go-slark/slark/pkg"
-	"github.com/go-slark/slark/transport/http/handler"
 	"io"
 	"net/http"
 	"net/url"
@@ -145,11 +144,9 @@ func ErrorEncoder(req *http.Request, rsp http.ResponseWriter, err error) {
 			Msg:  e.Message,
 		},
 	}
-	w, _ := rsp.(*handler.Wrapper)
 	codec, _ := Codec(req, "*") // utils.Accept
 	data, _ := codec.Marshal(response)
-	w.SetError(err)
-	w.Header().Set(utils.ContentType, SetContentType(codec.Name()))
-	w.WriteHeader(int(e.Code))
-	_, _ = w.Write(data)
+	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
+	rsp.WriteHeader(int(e.Code))
+	_, _ = rsp.Write(data)
 }

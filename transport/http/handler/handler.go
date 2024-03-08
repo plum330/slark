@@ -10,7 +10,6 @@ import (
 type Wrapper struct {
 	rw   http.ResponseWriter
 	code int
-	err  error // propagate error for middleware
 }
 
 func (w *Wrapper) WriteHeader(code int) {
@@ -26,14 +25,6 @@ func (w *Wrapper) Write(data []byte) (int, error) {
 	return w.rw.Write(data)
 }
 
-func (w *Wrapper) SetResponseWriter(rw http.ResponseWriter) {
-	w.rw = rw
-}
-
-func (w *Wrapper) SetError(err error) {
-	w.err = err
-}
-
 type Middleware func(handler http.Handler) http.Handler
 
 func ComposeMiddleware(handler http.Handler, mws ...Middleware) http.Handler {
@@ -47,16 +38,19 @@ func WrapMiddleware(mws ...middleware.Middleware) Middleware {
 	middle := middleware.ComposeMiddleware(mws...)
 	return func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			wrapper, ok := w.(*Wrapper)
+			if !ok {
+				wrapper = &Wrapper{rw: w}
+			}
 			next := func(ctx context.Context, req interface{}) (interface{}, error) {
-				handler.ServeHTTP(w, r)
-				wrapper, _ := w.(*Wrapper)
+				handler.ServeHTTP(wrapper, r)
 				var err error
-				if wrapper.code > 0 {
-					err = errors.New(wrapper.code, wrapper.err.Error(), wrapper.err.Error())
+				if wrapper.code != http.StatusOK {
+					err = errors.New(wrapper.code, errors.UnknownReason, errors.UnknownReason)
 				}
 				return wrapper.rw, err
 			}
-			_, _ = middle(next)(r.Context(), r)
+			middle(next)(r.Context(), r)
 		})
 	}
 }

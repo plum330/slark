@@ -3,7 +3,6 @@ package http
 import (
 	"context"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/transport/http/handler"
 	"net/http"
 )
 
@@ -12,15 +11,11 @@ type Context struct {
 	req    *http.Request
 	rsp    http.ResponseWriter
 	ctx    context.Context
-	w      *handler.Wrapper
 }
 
 func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	c.req = req
 	c.rsp = rsp
-	w := &handler.Wrapper{}
-	w.SetResponseWriter(rsp)
-	c.w = w
 }
 
 func (c *Context) Context() context.Context {
@@ -44,5 +39,5 @@ func (c *Context) ShouldBindQuery(v interface{}) error {
 }
 
 func (c *Context) Result(v interface{}) error {
-	return c.router.srv.codecs.rspEncoder(c.req, c.w, v)
+	return c.router.srv.codecs.rspEncoder(c.req, c.rsp, v)
 }

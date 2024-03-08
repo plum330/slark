@@ -12,7 +12,7 @@ func Breaker(opts ...bre.Option) middleware.Middleware {
 	breakers := bre.NewBreaker(opts...)
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			trans, ok := transport.FromClientContext(ctx)
+			trans, ok := transport.FromServerContext(ctx)
 			if !ok {
 				return handler(ctx, req)
 			}
