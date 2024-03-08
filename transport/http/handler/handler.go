@@ -3,13 +3,18 @@ package handler
 import (
 	"context"
 	"github.com/go-slark/slark/errors"
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"net/http"
+	"sync"
 )
 
 type Wrapper struct {
 	rw   http.ResponseWriter
 	code int
+	wrap bool
+	err  error
+	once sync.Once
 }
 
 func (w *Wrapper) WriteHeader(code int) {
@@ -44,13 +49,19 @@ func WrapMiddleware(mws ...middleware.Middleware) Middleware {
 			}
 			next := func(ctx context.Context, req interface{}) (interface{}, error) {
 				handler.ServeHTTP(wrapper, r)
-				var err error
-				if wrapper.code != http.StatusOK {
-					err = errors.New(wrapper.code, errors.UnknownReason, errors.UnknownReason)
+				if wrapper.wrap {
+					return wrapper.rw, wrapper.err
 				}
-				return wrapper.rw, err
+				wrapper.wrap = true
+				if wrapper.code != http.StatusOK {
+					wrapper.err = errors.New(wrapper.code, errors.UnknownReason, errors.UnknownReason)
+				}
+				return wrapper.rw, wrapper.err
 			}
-			middle(next)(r.Context(), r)
+			_, err := middle(next)(r.Context(), r)
+			wrapper.once.Do(func() {
+				logger.Log(r.Context(), logger.ErrorLevel, map[string]interface{}{"error": err})
+			})
 		})
 	}
 }

@@ -26,7 +26,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestBreaker(t *testing.T) {
-	srv := NewServer(Builtin(0x155), MaxConn(10))
+	srv := NewServer(Builtin(0x152), MaxConn(10))
 	r := NewRouter(srv)
 	rr := rand.NewSource(time.Now().UnixMilli())
 	r.Handle(http.MethodGet, "/ping", func(ctx *Context) error {
