@@ -20,7 +20,7 @@ func WithLimiter(limiter limit.Limiter) Option {
 }
 
 func Limit(opts ...Option) middleware.Middleware {
-	l := &Limiter{limiter: &limit.Noop{}}
+	l := &Limiter{limiter: limit.NewMaxConn()}
 	for _, opt := range opts {
 		opt(l)
 	}
@@ -28,10 +28,9 @@ func Limit(opts ...Option) middleware.Middleware {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			err := l.limiter.Pass()
 			if err != nil {
-				return nil, errors.New(430, "server rate limit", err.Error())
+				return nil, errors.ServerRateLimit("server rate limit", err.Error())
 			}
-			rsp, err := handler(ctx, req)
-			return rsp, err
+			return handler(ctx, req)
 		}
 	}
 }

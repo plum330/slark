@@ -16,6 +16,9 @@ type Context struct {
 func (c *Context) Set(req *http.Request, rsp http.ResponseWriter) {
 	c.req = req
 	c.rsp = rsp
+	if c.req != nil {
+		c.ctx = c.req.Context()
+	}
 }
 
 func (c *Context) Context() context.Context {

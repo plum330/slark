@@ -2,6 +2,7 @@ package breaker
 
 import (
 	"github.com/zeromicro/go-zero/core/breaker"
+	"github.com/zeromicro/go-zero/core/stat"
 	"sync"
 )
 
@@ -12,6 +13,7 @@ type GoogleBreaker struct {
 }
 
 func NewGoogleBreaker() *GoogleBreaker {
+	stat.DisableLog()
 	return &GoogleBreaker{Breaker: breaker.NewBreaker()}
 }
 

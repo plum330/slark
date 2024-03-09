@@ -110,8 +110,7 @@ type Response struct {
 func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) error {
 	r := &Response{
 		Header: &Header{
-			Code: http.StatusOK,
-			Msg:  "成功",
+			Msg: "成功",
 		},
 		Data: v,
 	}
@@ -131,7 +130,7 @@ func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) 
 	data = append(data, pb...)
 	data = append(data, '}')
 	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
-	rsp.WriteHeader(http.StatusOK)
+	rsp.WriteHeader(0)
 	_, err = rsp.Write(data)
 	return err
 }

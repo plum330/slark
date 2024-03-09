@@ -1,6 +1,7 @@
 package http
 
 import (
+	"context"
 	"github.com/go-slark/slark/errors"
 	"math/rand"
 	"net/http"
@@ -26,16 +27,22 @@ func TestServer(t *testing.T) {
 }
 
 func TestBreaker(t *testing.T) {
-	srv := NewServer(Builtin(0x152), MaxConn(10))
+	srv := NewServer(Builtin(0x1), MaxConn(10))
 	r := NewRouter(srv)
 	rr := rand.NewSource(time.Now().UnixMilli())
 	r.Handle(http.MethodGet, "/ping", func(ctx *Context) error {
-		time.Sleep(1 * time.Millisecond)
-		i := rr.Int63()
-		if i&0x1 == 1 {
-			return nil
+		x, err := ctx.Handle(func(ctx context.Context, req interface{}) (interface{}, error) {
+			time.Sleep(1 * time.Millisecond)
+			i := rr.Int63()
+			if i&0x1 == 1 {
+				//return nil
+			}
+			return nil, errors.ServerUnavailable("xx-err-msg", "xx-err-reason")
+		})(ctx.Context(), nil)
+		if err != nil {
+			return err
 		}
-		return errors.ServerUnavailable("", "")
+		return ctx.Result(x)
 	})
 	srv.Start()
 }

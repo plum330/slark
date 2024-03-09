@@ -62,3 +62,11 @@ func ServerTimeout(msg, reason string) *Error {
 func IsServerTimeout(err error) bool {
 	return Code(err) == http.StatusGatewayTimeout
 }
+
+func ServerRateLimit(msg, reason string) *Error {
+	return New(http.StatusTooManyRequests, msg, reason)
+}
+
+func IsServerRateLimit(err error) bool {
+	return Code(err) == http.StatusTooManyRequests
+}

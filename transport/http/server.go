@@ -9,15 +9,18 @@ import (
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/limit"
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/shedding"
 	"github.com/go-slark/slark/middleware/stat"
+	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/transport"
 	"github.com/go-slark/slark/transport/http/handler"
+	"go.opentelemetry.io/otel/trace"
 	"net"
 	"net/http"
 	"net/url"
@@ -129,7 +132,7 @@ func NewServer(opts ...ServerOption) *Server {
 		basePath: "/",
 		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
-		handlers: []handler.Middleware{},
+		handlers: []handler.Middleware{handler.CORS()},
 		engine:   engine,
 		codecs: &Codecs{
 			bodyDecoder:  RequestBodyDecoder,
@@ -139,26 +142,27 @@ func NewServer(opts ...ServerOption) *Server {
 			errorEncoder: ErrorEncoder,
 		},
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
-		mws:     []middleware.Middleware{validate.Validate()},
+		mws:     []middleware.Middleware{},
 		maxConn: 10000,
 		builtin: 0x14b, // low -> high
 	}
 	for _, o := range opts {
 		o(srv)
 	}
-	if len(srv.handlers) == 0 {
-		srv.handlers = []handler.Middleware{
-			handler.Trace(),
-			handler.WrapMiddleware(logging.Log(middleware.Server, srv.logger)),
-			handler.WrapMiddleware(metrics.Metrics(middleware.Server)),
-			handler.MaxConn(srv.logger, srv.maxConn),
-			handler.WrapMiddleware(breaker.Breaker()),
-			handler.WrapMiddleware(shedding.Shedding(transport.HTTP, 900)), // 0 - 1000
-			handler.WrapMiddleware(recovery.Recovery(srv.logger)),
-			handler.WrapMiddleware(stat.Stat(transport.HTTP)),
-			handler.CORS(),
+	if len(srv.mws) == 0 {
+		srv.mws = []middleware.Middleware{
+			tracing.Trace(trace.SpanKindServer),
+			logging.Log(middleware.Server, srv.logger),
+			metrics.Metrics(middleware.Server),
+			limit.Limit(),
+			breaker.Breaker(),
+			shedding.Shedding(transport.HTTP, 900), // 0 - 1000
+			recovery.Recovery(srv.logger),
+			stat.Stat(transport.HTTP),
+			validate.Validate(),
 		}
 	}
+	srv.mws = utils.Filter(srv.mws, srv.builtin)
 	srv.TLSConfig = srv.tls
 	srv.handlers = append([]handler.Middleware{func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -166,11 +170,13 @@ func NewServer(opts ...ServerOption) *Server {
 				operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
 				req:       Carrier(r.Header),
 				rsp:       Carrier{},
+				r:         r,
+				w:         w,
 			}
 			r = r.WithContext(transport.NewServerContext(r.Context(), trans))
 			handler.ServeHTTP(w, r)
 		})
-	}}, utils.Filter(srv.handlers, srv.builtin)...)
+	}})
 	srv.Handler = handler.ComposeMiddleware(srv.engine, srv.handlers...)
 	srv.err = srv.listen()
 	return srv

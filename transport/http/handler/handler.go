@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"github.com/go-slark/slark/errors"
-	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"net/http"
 	"sync"
@@ -48,20 +47,17 @@ func WrapMiddleware(mws ...middleware.Middleware) Middleware {
 				wrapper = &Wrapper{rw: w}
 			}
 			next := func(ctx context.Context, req interface{}) (interface{}, error) {
-				handler.ServeHTTP(wrapper, r)
 				if wrapper.wrap {
 					return wrapper.rw, wrapper.err
 				}
-				wrapper.wrap = true
-				if wrapper.code != http.StatusOK {
+				handler.ServeHTTP(wrapper, r)
+				if wrapper.code > 0 {
+					wrapper.wrap = true
 					wrapper.err = errors.New(wrapper.code, errors.UnknownReason, errors.UnknownReason)
 				}
 				return wrapper.rw, wrapper.err
 			}
-			_, err := middle(next)(r.Context(), r)
-			wrapper.once.Do(func() {
-				logger.Log(r.Context(), logger.ErrorLevel, map[string]interface{}{"error": err})
-			})
+			middle(next)(r.Context(), r)
 		})
 	}
 }

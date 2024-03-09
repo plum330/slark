@@ -23,6 +23,8 @@ type Transport struct {
 	operation string
 	req       Carrier
 	rsp       Carrier
+	r         *http.Request
+	w         http.ResponseWriter
 }
 
 func (t *Transport) Kind() string {
