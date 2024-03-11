@@ -20,14 +20,9 @@ import (
 func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		trans := &Transport{
-			req: Carrier{},
-			rsp: Carrier{},
-		}
-		if strings.HasPrefix(info.FullMethod, "/") {
-			pos := strings.LastIndex(info.FullMethod[1:], "/")
-			if pos >= 0 {
-				trans.operation = fmt.Sprintf("%s %s", info.FullMethod[1:][pos+1:], info.FullMethod[1:][:pos])
-			}
+			operation: info.FullMethod,
+			req:       Carrier{},
+			rsp:       Carrier{},
 		}
 		ctx = transport.NewServerContext(ctx, trans)
 		var cancel context.CancelFunc

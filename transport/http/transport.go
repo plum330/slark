@@ -19,12 +19,18 @@ func (c Carrier) Get(k string) string {
 	return http.Header(c).Get(k)
 }
 
+func (c Carrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for key := range http.Header(c) {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 type Transport struct {
 	operation string
 	req       Carrier
 	rsp       Carrier
-	r         *http.Request
-	w         http.ResponseWriter
 }
 
 func (t *Transport) Kind() string {

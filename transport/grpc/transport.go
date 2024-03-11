@@ -24,6 +24,14 @@ func (c Carrier) Get(k string) string {
 	return v[0]
 }
 
+func (c Carrier) Keys() []string {
+	keys := make([]string, 0, len(c))
+	for key := range metadata.MD(c) {
+		keys = append(keys, key)
+	}
+	return keys
+}
+
 type Transport struct {
 	operation string
 	req       Carrier

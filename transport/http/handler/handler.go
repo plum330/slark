@@ -5,7 +5,6 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/middleware"
 	"net/http"
-	"sync"
 )
 
 type Wrapper struct {
@@ -13,7 +12,6 @@ type Wrapper struct {
 	code int
 	wrap bool
 	err  error
-	once sync.Once
 }
 
 func (w *Wrapper) WriteHeader(code int) {

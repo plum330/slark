@@ -9,12 +9,10 @@ import (
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/breaker"
-	"github.com/go-slark/slark/middleware/limit"
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/shedding"
-	"github.com/go-slark/slark/middleware/stat"
 	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
@@ -36,7 +34,6 @@ type Server struct {
 	network  string
 	address  string
 	basePath string
-	maxConn  int
 	builtin  int64
 	engine   *gin.Engine
 	logger   logger.Logger
@@ -94,12 +91,6 @@ func BasePath(bassPath string) ServerOption {
 	}
 }
 
-func MaxConn(size int) ServerOption {
-	return func(s *Server) {
-		s.maxConn = size
-	}
-}
-
 func Builtin(builtin int64) ServerOption {
 	return func(s *Server) {
 		s.builtin = builtin
@@ -143,8 +134,7 @@ func NewServer(opts ...ServerOption) *Server {
 		},
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
 		mws:     []middleware.Middleware{},
-		maxConn: 10000,
-		builtin: 0x14b, // low -> high
+		builtin: 0x63, // low -> high
 	}
 	for _, o := range opts {
 		o(srv)
@@ -154,11 +144,9 @@ func NewServer(opts ...ServerOption) *Server {
 			tracing.Trace(trace.SpanKindServer),
 			logging.Log(middleware.Server, srv.logger),
 			metrics.Metrics(middleware.Server),
-			limit.Limit(),
 			breaker.Breaker(),
-			shedding.Shedding(transport.HTTP, 900), // 0 - 1000
+			shedding.Limit(),
 			recovery.Recovery(srv.logger),
-			stat.Stat(transport.HTTP),
 			validate.Validate(),
 		}
 	}
@@ -170,8 +158,6 @@ func NewServer(opts ...ServerOption) *Server {
 				operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
 				req:       Carrier(r.Header),
 				rsp:       Carrier{},
-				r:         r,
-				w:         w,
 			}
 			r = r.WithContext(transport.NewServerContext(r.Context(), trans))
 			handler.ServeHTTP(w, r)
