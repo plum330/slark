@@ -120,27 +120,47 @@ func TestFromDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new db error:%+v", err)
 	}
-	usr := &AdminModel{}
 	c := New(redis.NewClient(&redis.Options{
 		Addr:     "",
 		Password: "",
 		DB:       10,
 	}), Expiry(5*time.Minute))
-	_, err = c.Fetch(context.TODO(), "primary-key:1", usr, func(v any) error {
-		return client.Model(AdminModel{}).Where("id = 1").First(v).Error
-	})
-	if err != nil {
-		t.Errorf("fetch error:%+v", err)
+
+	cases := []struct {
+		name  string
+		key   string
+		f     func(any) error
+		model *AdminModel
+	}{
+		{
+			name: "db存在primary key",
+			key:  "primary-key:1",
+			f: func(v any) error {
+				return client.Model(AdminModel{}).Where("id = 1").First(v).Error
+			},
+			model: &AdminModel{},
+		},
+		{
+			name: "db不存在primary key",
+			key:  "primary-key:0",
+			f: func(v any) error {
+				return client.Model(AdminModel{}).Where("id = 0").First(v).Error
+			},
+			model: &AdminModel{},
+		},
 	}
-	fmt.Printf("primary-key:1:%+v\n", usr)
-	// db不存在
-	_, err = c.Fetch(context.TODO(), "primary-key:0", usr, func(v any) error {
-		return client.Model(AdminModel{}).Where("id = ?", 0).First(v).Error
-	})
-	if err != nil {
-		t.Errorf("fetch error:%+v", err)
+
+	for _, ca := range cases {
+		t.Run(ca.name, func(t *testing.T) {
+			_, err = c.Fetch(context.TODO(), ca.key, ca.model, ca.f)
+			if err != nil {
+				t.Errorf("fetch error:%+v", err)
+			}
+			fmt.Printf("%s:%+v\n", ca.key, ca.model)
+		})
 	}
-	fmt.Printf("primary-key:0:%+v\n", usr)
+
+	usr := &AdminModel{}
 	err = c.FetchIndex(context.TODO(), "unique-key:account", func(v any) string {
 		return fmt.Sprintf("primary-key:%v", v)
 	}, usr, func(v any) error {

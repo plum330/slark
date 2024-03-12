@@ -32,7 +32,7 @@ func Expiry(expiry time.Duration) Option {
 	}
 }
 
-func New(redis *redis.Client, opts ...Option) *Cache {
+func New(redis redis.UniversalClient, opts ...Option) *Cache {
 	c := &Cache{
 		rocks:  rockscache.NewClient(redis, rockscache.NewDefaultOptions()),
 		sf:     sf.NewSingFlight(),
@@ -46,7 +46,7 @@ func New(redis *redis.Client, opts ...Option) *Cache {
 }
 
 func (c *Cache) Fetch(ctx context.Context, key string, v any, fn func(any) error) (bool, error) {
-	var found bool
+	var found bool // db from
 	data, err := c.sf.Do(key, func() (interface{}, error) {
 		return c.rocks.Fetch2(ctx, key, c.expiry, func() (string, error) {
 			err := fn(v)
@@ -66,7 +66,7 @@ func (c *Cache) Fetch(ctx context.Context, key string, v any, fn func(any) error
 	}
 	str, _ := data.(string)
 	if len(str) == 0 {
-		return found, nil
+		return found, c.err
 	}
 	return found, json.Unmarshal([]byte(data.(string)), v)
 }
@@ -96,6 +96,10 @@ func (c *Cache) FetchIndex(ctx context.Context, key string, kf func(any) string,
 	return err
 }
 
-func (c *Cache) Delete(key string) error {
-	return c.rocks.TagAsDeleted(key)
+func (c *Cache) Delete(ctx context.Context, key string) error {
+	return c.rocks.TagAsDeleted2(ctx, key)
+}
+
+func (c *Cache) DeleteBatch(ctx context.Context, keys []string) error {
+	return c.rocks.TagAsDeletedBatch2(ctx, keys)
 }

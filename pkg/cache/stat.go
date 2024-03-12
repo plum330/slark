@@ -61,6 +61,6 @@ func (s *Stat) IncrementMiss() {
 	atomic.AddUint64(&s.miss, 1)
 }
 
-func (s *Stat) IncrementDbFails() {
+func (s *Stat) IncrementDbFail() {
 	atomic.AddUint64(&s.dbFail, 1)
 }
