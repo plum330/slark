@@ -1,17 +1,14 @@
 package handler
 
 import (
-	"context"
-	"github.com/go-slark/slark/errors"
-	"github.com/go-slark/slark/middleware"
 	"net/http"
 )
+
+// wrap http response writer
 
 type Wrapper struct {
 	rw   http.ResponseWriter
 	code int
-	wrap bool
-	err  error
 }
 
 func (w *Wrapper) WriteHeader(code int) {
@@ -34,28 +31,4 @@ func ComposeMiddleware(handler http.Handler, mws ...Middleware) http.Handler {
 		handler = mws[i](handler)
 	}
 	return handler
-}
-
-func WrapMiddleware(mws ...middleware.Middleware) Middleware {
-	middle := middleware.ComposeMiddleware(mws...)
-	return func(handler http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			wrapper, ok := w.(*Wrapper)
-			if !ok {
-				wrapper = &Wrapper{rw: w}
-			}
-			next := func(ctx context.Context, req interface{}) (interface{}, error) {
-				if wrapper.wrap {
-					return wrapper.rw, wrapper.err
-				}
-				handler.ServeHTTP(wrapper, r)
-				if wrapper.code > 0 {
-					wrapper.wrap = true
-					wrapper.err = errors.New(wrapper.code, errors.UnknownReason, errors.UnknownReason)
-				}
-				return wrapper.rw, wrapper.err
-			}
-			middle(next)(r.Context(), r)
-		})
-	}
 }

@@ -2,13 +2,19 @@ package ws
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
+	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/pkg/routine"
+	"github.com/go-slark/slark/transport"
+	thttp "github.com/go-slark/slark/transport/http"
 	"github.com/go-slark/slark/transport/http/handler"
 	"github.com/gorilla/websocket"
 	"github.com/rs/xid"
+	"go.opentelemetry.io/otel/trace"
 	"net"
 	"net/http"
 	"strconv"
@@ -20,7 +26,8 @@ import (
 type Server struct {
 	*http.Server
 	handlers []handler.Middleware
-	before   func(w http.ResponseWriter, r *http.Request) (interface{}, error)
+	mws      []middleware.Middleware
+	before   func(ctx context.Context, req *http.Request) (interface{}, error)
 	after    func(s *Session) error
 	opt      *SessionOption
 	ug       *websocket.Upgrader
@@ -51,12 +58,15 @@ func NewServer(opts ...ServerOption) *Server {
 		network: "tcp",
 		address: "0.0.0.0:0",
 		logger:  logger.GetLogger(),
+		before: func(ctx context.Context, req *http.Request) (interface{}, error) {
+			return nil, nil
+		},
 		after: func(s *Session) error {
 			s.Close()
 			return nil
 		},
 	}
-
+	srv.mws = []middleware.Middleware{tracing.Trace(trace.SpanKindServer), recovery.Recovery(srv.logger)}
 	for _, opt := range opts {
 		opt(srv)
 	}
@@ -86,41 +96,37 @@ func (s *Server) Handler(hf func(s *Session)) {
 			"header": r.Header,
 			"params": r.URL.Query(),
 		}
-		var (
-			err    error
-			result interface{}
-		)
-		ctx := r.Context()
-		if s.before != nil {
-			result, err = s.before(w, r)
-			ctx = r.Context()
-			if err != nil {
-				s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish suspend...")
-				return
-			}
+		trans := &thttp.Transport{
+			Operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+			Req:       thttp.Carrier(r.Header),
+			Rsp:       thttp.Carrier{},
+		}
+		ctx := transport.NewServerContext(r.Context(), trans)
+		result, err := middleware.ComposeMiddleware(s.mws...)(func(x context.Context, req interface{}) (interface{}, error) {
+			ctx = x
+			return s.before(x, r)
+		})(ctx, r)
+		if err != nil {
+			mp["error"] = err
+			s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish suspend...")
+			return
 		}
 		s.logger.Log(ctx, logger.DebugLevel, mp, "ws start to establish...")
 		session, err := s.NewSession(w, r)
 		if err != nil {
+			mp["error"] = err
 			s.logger.Log(ctx, logger.ErrorLevel, mp, "ws establish session error")
 			return
 		}
 		s.logger.Log(ctx, logger.DebugLevel, mp, "ws establish success")
 		session.SetContext(ctx)
-		if result != nil {
-			session.SetCtx(result)
-		}
+		session.SetCtx(result)
 		routine.GoSafe(context.TODO(), func() {
 			hf(session)
 			session.ch <- struct{}{}
 		})
-		if s.after != nil {
-			<-session.ch
-			err = s.after(session)
-			if err != nil {
-				return
-			}
-		}
+		<-session.ch
+		_ = s.after(session)
 	})
 }
 
@@ -128,7 +134,6 @@ func (s *Server) Start() error {
 	if s.err != nil {
 		return s.err
 	}
-	s.handlers = append(s.handlers, handler.WrapMiddleware(recovery.Recovery(s.logger)))
 	http.Handle(s.path, handler.ComposeMiddleware(s.handler, s.handlers...))
 	err := s.Serve(s.listener)
 	if !errors.Is(err, http.ErrServerClosed) {

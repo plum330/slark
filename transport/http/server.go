@@ -155,9 +155,9 @@ func NewServer(opts ...ServerOption) *Server {
 	srv.handlers = append([]handler.Middleware{func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			trans := &Transport{
-				operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
-				req:       Carrier(r.Header),
-				rsp:       Carrier{},
+				Operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+				Req:       Carrier(r.Header),
+				Rsp:       Carrier{},
 			}
 			r = r.WithContext(transport.NewServerContext(r.Context(), trans))
 			handler.ServeHTTP(w, r)

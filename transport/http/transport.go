@@ -28,9 +28,9 @@ func (c Carrier) Keys() []string {
 }
 
 type Transport struct {
-	operation string
-	req       Carrier
-	rsp       Carrier
+	Operation string
+	Req       Carrier
+	Rsp       Carrier
 }
 
 func (t *Transport) Kind() string {
@@ -38,13 +38,13 @@ func (t *Transport) Kind() string {
 }
 
 func (t *Transport) Operate() string {
-	return t.operation
+	return t.Operation
 }
 
 func (t *Transport) ReqCarrier() transport.Carrier {
-	return t.req
+	return t.Req
 }
 
 func (t *Transport) RspCarrier() transport.Carrier {
-	return t.rsp
+	return t.Rsp
 }

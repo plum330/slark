@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// db cache
+
 type Cache struct {
 	rocks  *rockscache.Client
 	sf     *sf.SingleFlight
@@ -96,10 +98,23 @@ func (c *Cache) FetchIndex(ctx context.Context, key string, kf func(any) string,
 	return err
 }
 
+// insert delete update
+
+func (c *Cache) Exec(ctx context.Context, v any, f func(any) error, keys ...string) error {
+	err := f(v)
+	if err != nil {
+		return err
+	}
+	return c.Deletes(ctx, keys)
+}
+
 func (c *Cache) Delete(ctx context.Context, key string) error {
 	return c.rocks.TagAsDeleted2(ctx, key)
 }
 
-func (c *Cache) DeleteBatch(ctx context.Context, keys []string) error {
+func (c *Cache) Deletes(ctx context.Context, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
 	return c.rocks.TagAsDeletedBatch2(ctx, keys)
 }
