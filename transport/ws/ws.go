@@ -53,6 +53,7 @@ func NewServer(opts ...ServerOption) *Server {
 			hbInterval: 10 * time.Second,
 			wTime:      10 * time.Second,
 			hsTime:     3 * time.Second,
+			closeWait:  500 * time.Millisecond,
 			rLimit:     51200,
 		},
 		network: "tcp",
@@ -161,10 +162,11 @@ type SessionOption struct {
 	out        int
 	rBuffer    int
 	wBuffer    int
+	rLimit     int64
 	hbInterval time.Duration
 	wTime      time.Duration
 	hsTime     time.Duration
-	rLimit     int64
+	closeWait  time.Duration
 }
 
 type Msg struct {
@@ -345,6 +347,7 @@ func (s *Session) Close() {
 		return
 	}
 	s.closed.Store(true)
+	time.Sleep(s.opt.closeWait)
 	s.l.Lock()
 	_ = s.conn.WriteMessage(websocket.CloseMessage, nil)
 	s.l.Unlock()

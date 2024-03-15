@@ -117,6 +117,12 @@ func HandShakeTime(hst time.Duration) Option {
 	}
 }
 
+func CloseWait(cw time.Duration) Option {
+	return func(opt *SessionOption) {
+		opt.closeWait = cw
+	}
+}
+
 func ReadLimit(rLimit int64) Option {
 	return func(opt *SessionOption) {
 		opt.rLimit = rLimit

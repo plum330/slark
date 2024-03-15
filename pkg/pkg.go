@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
+	"github.com/zeromicro/go-zero/core/stat"
 	"net"
 	"net/url"
 	"os"
@@ -241,4 +242,9 @@ func ReadLines(fn string, opts ...LineReadOpt) ([]string, error) {
 		lines = append(lines, line)
 	}
 	return lines, s.Err()
+}
+
+func init() {
+	// shielding stat log
+	stat.DisableLog()
 }
