@@ -64,3 +64,7 @@ func (p *Parallel[T, U, V]) Do() (V, error) {
 func Exec(fs ...func() error) error {
 	return mr.Finish(fs...)
 }
+
+func VoidExec(fs ...func()) {
+	mr.FinishVoid(fs...)
+}

@@ -2,6 +2,7 @@ package future
 
 import (
 	"errors"
+	"fmt"
 	"github.com/zeromicro/go-zero/core/mr"
 	"testing"
 )
@@ -69,4 +70,26 @@ func TestParallelWithCancel(t *testing.T) {
 		return
 	}
 	t.Logf("result:%v", v)
+}
+
+func TestExec(t *testing.T) {
+	err := Exec(func() error {
+		fmt.Println("11111")
+		return nil
+	}, func() error {
+		fmt.Println("22222")
+		return errors.New("error")
+	}, func() error {
+		fmt.Println("777777")
+		return errors.New("error 333")
+	})
+	fmt.Println("error:", err)
+}
+
+func TestVoidExec(t *testing.T) {
+	VoidExec(func() {
+		fmt.Println("33333")
+	}, func() {
+		fmt.Println("55555")
+	})
 }

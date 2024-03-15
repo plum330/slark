@@ -94,7 +94,7 @@ func (b *Batch) do(index int, ch <-chan *data) {
 	)
 	msg := make(map[string][]any)
 	interval := b.interval
-	if index == 0 {
+	if index > 0 {
 		// 调整时间间隔，goroutine lb
 		interval = time.Duration(int64(b.interval) * int64(index) / int64(b.worker))
 		adjust = true
