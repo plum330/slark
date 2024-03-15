@@ -36,8 +36,7 @@ func Expiry(expiry time.Duration) Option {
 
 func New(redis redis.UniversalClient, opts ...Option) *Cache {
 	c := &Cache{
-		rocks:  rockscache.NewClient(redis, rockscache.NewDefaultOptions()),
-		sf:     sf.NewSingFlight(),
+		rocks: rockscache.NewClient(redis, rockscache.NewDefaultOptions()),
 		err:    gorm.ErrRecordNotFound,
 		expiry: time.Hour * 24 * 7,
 	}
@@ -49,28 +48,25 @@ func New(redis redis.UniversalClient, opts ...Option) *Cache {
 
 func (c *Cache) Fetch(ctx context.Context, key string, v any, fn func(any) error) (bool, error) {
 	var found bool // db from
-	data, err := c.sf.Do(key, func() (interface{}, error) {
-		return c.rocks.Fetch2(ctx, key, c.expiry, func() (string, error) {
-			err := fn(v)
-			if err != nil {
-				if errors.Is(err, c.err) {
-					return "", nil
-				}
-				return "", err
+	data, err := c.rocks.Fetch2(ctx, key, c.expiry, func() (string, error) {
+		err := fn(v)
+		if err != nil {
+			if errors.Is(err, c.err) {
+				return "", nil
 			}
-			found = true
-			data, err := json.Marshal(v)
-			return string(data), err
-		})
+			return "", err
+		}
+		found = true
+		data, err := json.Marshal(v)
+		return string(data), err
 	})
 	if err != nil {
 		return found, err
 	}
-	str, _ := data.(string)
-	if len(str) == 0 {
+	if len(data) == 0 {
 		return found, c.err
 	}
-	return found, json.Unmarshal([]byte(data.(string)), v)
+	return found, json.Unmarshal([]byte(data), v)
 }
 
 /*

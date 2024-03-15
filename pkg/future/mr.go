@@ -60,3 +60,7 @@ func NewParallel[T, U, V any](opts ...Option[T, U, V]) *Parallel[T, U, V] {
 func (p *Parallel[T, U, V]) Do() (V, error) {
 	return mr.MapReduce(p.producer, p.splitter, p.merger, mr.WithContext(p.ctx), mr.WithWorkers(p.worker))
 }
+
+func Exec(fs ...func() error) error {
+	return mr.Finish(fs...)
+}
