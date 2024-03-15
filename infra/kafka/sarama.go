@@ -6,9 +6,16 @@ import (
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/pkg/routine"
 	tracing "github.com/go-slark/slark/pkg/trace"
+	"github.com/zhenjl/cityhash"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"time"
+)
+
+const (
+	msgTopic = "msg_topic"
+	msgKey   = "msg_key"
+	msgValue = "msg_value"
 )
 
 type KafkaProducer struct {
@@ -61,7 +68,7 @@ func (kp *KafkaProducer) SyncSend(ctx context.Context, topic, key string, msg []
 	if kp.Tracer != nil {
 		opt := []trace.SpanStartOption{
 			trace.WithSpanKind(kp.Kind()),
-			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
+			trace.WithAttributes(attribute.String(msgTopic, topic), attribute.String(msgKey, key), attribute.String(msgValue, string(msg))),
 		}
 		_, span := kp.Start(ctx, "kafka sync send", &producerMsgCarrier{pm}, opt...)
 		defer span.End()
@@ -79,7 +86,7 @@ func (kp *KafkaProducer) AsyncSend(ctx context.Context, topic, key string, msg [
 	if kp.Tracer != nil {
 		opt := []trace.SpanStartOption{
 			trace.WithSpanKind(kp.Kind()),
-			trace.WithAttributes(attribute.String("mq_topic", topic), attribute.String("mq_key", key), attribute.String("mq_msg", string(msg))),
+			trace.WithAttributes(attribute.String(msgTopic, topic), attribute.String(msgKey, key), attribute.String(msgValue, string(msg))),
 		}
 		_, span := kp.Start(ctx, "kafka async send", &producerMsgCarrier{pm}, opt...)
 		defer span.End()
@@ -182,13 +189,14 @@ type Consume interface {
 type KafkaConsumerGroup struct {
 	sarama.ConsumerGroup
 	sarama.ConsumerGroupHandler
-	Topics []string
-	context.Context
-	context.CancelFunc
 	logger.Logger
 	*tracing.Tracer
+	topics   []string
+	ctx      context.Context
+	cf       context.CancelFunc
 	handlers map[string]Consume
-	worker   chan struct{}
+	worker   int
+	chs      []chan *sarama.ConsumerMessage
 }
 
 func NewKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) (*KafkaConsumerGroup, error) {
@@ -198,15 +206,23 @@ func NewKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) (*KafkaCo
 	}
 	k := &KafkaConsumerGroup{
 		ConsumerGroup: cg,
-		Topics:        conf.Topics,
+		topics:        conf.Topics,
 		Logger:        logger.GetLogger(),
 		handlers:      make(map[string]Consume),
-		worker:        make(chan struct{}, conf.Worker),
+		worker:        conf.Worker,
+		chs:           make([]chan *sarama.ConsumerMessage, conf.Worker),
+	}
+	for i := 0; i < k.worker; i++ {
+		ch := make(chan *sarama.ConsumerMessage, 1024)
+		k.chs[i] = ch
+		routine.GoSafe(context.TODO(), func() {
+			k.consume(ch)
+		})
 	}
 	if conf.TraceEnable {
 		k.Tracer = tracing.NewTracer(trace.SpanKindConsumer, opts...)
 	}
-	k.Context, k.CancelFunc = context.WithCancel(context.TODO())
+	k.ctx, k.cf = context.WithCancel(context.TODO())
 	return k, nil
 }
 
@@ -228,68 +244,69 @@ func newConsumerGroup(conf *ConsumerGroupConf) (sarama.ConsumerGroup, error) {
 	return sarama.NewConsumerGroup(conf.Brokers, conf.GroupID, config)
 }
 
-func (kc *KafkaConsumerGroup) Register(topic string, handler Consume) {
-	kc.handlers[topic] = handler
+func (k *KafkaConsumerGroup) Register(topic string, handler Consume) {
+	k.handlers[topic] = handler
 }
 
 func (*KafkaConsumerGroup) Setup(_ sarama.ConsumerGroupSession) error   { return nil }
 func (*KafkaConsumerGroup) Cleanup(_ sarama.ConsumerGroupSession) error { return nil }
-func (kc *KafkaConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	handler, ok := kc.handlers[claim.Topic()]
-	if !ok {
-		kc.Log(context.TODO(), logger.WarnLevel, map[string]interface{}{"topic": claim.Topic()}, "topic unregister")
-		return nil
-	}
-
+func (k *KafkaConsumerGroup) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-		kc.worker <- struct{}{}
-		m := msg
-		ctx := context.Background()
-		var span trace.Span
-		routine.GoSafe(ctx, func() {
-			defer func() {
-				<-kc.worker
-			}()
-			if kc.Tracer != nil {
-				opt := []trace.SpanStartOption{
-					trace.WithSpanKind(kc.Kind()),
-					trace.WithAttributes(attribute.String("mq_topic", m.Topic), attribute.String("mq_key", string(m.Key)), attribute.String("mq_msg", string(m.Value))),
-				}
-				ctx, span = kc.Tracer.Start(ctx, "kafka group consume", &consumerMsgCarrier{m}, opt...)
-				defer span.End()
-			}
-			err := handler.Handler(ctx, m)
-			if err != nil {
-				kc.Log(ctx, logger.ErrorLevel, map[string]interface{}{"error": err}, "handle consume msg error")
-			}
-		})
-		sess.MarkMessage(m, "")
+		index := cityhash.CityHash32(msg.Key, uint32(len(msg.Key))) % uint32(k.worker)
+		k.chs[index] <- msg
+		sess.MarkMessage(msg, "")
 	}
 	return nil
 }
 
-func (kc *KafkaConsumerGroup) Consume() {
+func (k *KafkaConsumerGroup) Consume() {
 	for {
-		err := kc.ConsumerGroup.Consume(kc.Context, kc.Topics, kc.ConsumerGroupHandler)
+		err := k.ConsumerGroup.Consume(k.ctx, k.topics, k.ConsumerGroupHandler)
 		if err != nil {
-			kc.Log(kc.Context, logger.WarnLevel, map[string]interface{}{"error": err}, "consumer group consume fail")
+			k.Log(k.ctx, logger.WarnLevel, map[string]interface{}{"error": err}, "consumer group consume fail")
 		}
-		if kc.Context.Err() != nil {
-			kc.Log(kc.Context, logger.ErrorLevel, map[string]interface{}{"error": kc.Context.Err()}, "consumer group exit")
+		if k.ctx.Err() != nil {
+			k.Log(k.ctx, logger.ErrorLevel, map[string]interface{}{"error": k.ctx.Err()}, "consumer group exit")
 			return
 		}
 		time.Sleep(time.Second)
 	}
 }
 
-func (kc *KafkaConsumerGroup) Start() error {
-	kc.Consume()
+func (k *KafkaConsumerGroup) consume(ch <-chan *sarama.ConsumerMessage) {
+	for {
+		msg := <-ch
+		handler, ok := k.handlers[msg.Topic]
+		if !ok {
+			k.Log(context.TODO(), logger.WarnLevel, map[string]interface{}{"topic": msg.Topic}, "topic unregister")
+			continue
+		}
+
+		ctx := context.Background()
+		var span trace.Span
+		if k.Tracer != nil {
+			opt := []trace.SpanStartOption{
+				trace.WithSpanKind(k.Kind()),
+				trace.WithAttributes(attribute.String(msgTopic, msg.Topic), attribute.String(msgKey, string(msg.Key)), attribute.String(msgValue, string(msg.Value))),
+			}
+			ctx, span = k.Tracer.Start(context.TODO(), "kafka group consume", &consumerMsgCarrier{msg}, opt...)
+			span.End()
+		}
+		err := handler.Handler(ctx, msg)
+		if err != nil {
+			k.Log(ctx, logger.ErrorLevel, map[string]interface{}{"error": err}, "handle consume msg error")
+		}
+	}
+}
+
+func (k *KafkaConsumerGroup) Start() error {
+	k.Consume()
 	return nil
 }
 
-func (kc *KafkaConsumerGroup) Stop(_ context.Context) error {
-	kc.CancelFunc()
-	return kc.Close()
+func (k *KafkaConsumerGroup) Stop(_ context.Context) error {
+	k.cf()
+	return k.Close()
 }
 
 var (

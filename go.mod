@@ -30,6 +30,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/zeromicro/go-zero v1.6.3
+	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
 	go.etcd.io/etcd/client/v3 v3.5.12
 	go.mongodb.org/mongo-driver v1.14.0
 	go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo v0.49.0
