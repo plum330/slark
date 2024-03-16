@@ -24,7 +24,7 @@ func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 			ctx, cancel = context.WithTimeout(ctx, opt.tm)
 			defer cancel()
 		}
-		_, err := middleware.ComposeMiddleware(opt.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+		_, err := middleware.ComposeMiddleware(opt.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return reply, invoker(ctx, method, req, reply, cc, opts...)
 		})(ctx, req)
 		return err
@@ -40,10 +40,9 @@ func streamClientInterceptor(opt *option) grpc.StreamClientInterceptor {
 			filters:   opt.filters,
 		}
 		ctx = transport.NewClientContext(ctx, trans)
-		rsp, err := middleware.ComposeMiddleware(opt.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+		rsp, err := middleware.ComposeMiddleware(opt.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return streamer(ctx, desc, cc, method, opts...)
 		})(ctx, nil)
-		// TODO
 		return rsp.(grpc.ClientStream), err
 	}
 }

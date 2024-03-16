@@ -34,7 +34,7 @@ type Server struct {
 	address  string
 	builtin  int64
 	timeout  time.Duration
-	mw       []middleware.Middleware
+	mws      []middleware.Middleware
 	opts     []grpc.ServerOption
 	unary    []grpc.UnaryServerInterceptor
 	stream   []grpc.StreamServerInterceptor
@@ -49,17 +49,26 @@ func NewServer(opts ...ServerOption) *Server {
 		opts:    ServerOpts(),
 		builtin: 0x13,
 	}
-	srv.mw = []middleware.Middleware{
+	srv.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
 		recovery.Recovery(srv.logger),
 		// stat
-		metrics.Metrics(middleware.Server),
+		metrics.Metrics(middleware.Server,
+			metrics.WithHistogram(metrics.NewHistogram(
+				metrics.Namespace("grpc_server"),
+				metrics.Name("duration_second"),
+				metrics.Help("grpc server requests duration second"),
+				metrics.SubSystem("requests"),
+				metrics.Labels([]string{"kind", "operation"}),
+			)),
+		),
 		breaker.Breaker(),
 		validate.Validate(),
 	}
 	for _, o := range opts {
 		o(srv)
 	}
+	srv.mws = utils.Filter(srv.mws, srv.builtin)
 	var grpcOpts []grpc.ServerOption
 	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
 	srv.stream = append(srv.stream, srv.streamServerInterceptor())
@@ -180,9 +189,9 @@ func ServerOptions(opts []grpc.ServerOption) ServerOption {
 	}
 }
 
-func Middleware(mw []middleware.Middleware) ServerOption {
+func Middleware(mws []middleware.Middleware) ServerOption {
 	return func(server *Server) {
-		server.mw = mw
+		server.mws = mws
 	}
 }
 

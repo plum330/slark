@@ -48,7 +48,7 @@ type option struct {
 	opts      []grpc.DialOption
 	unary     []grpc.UnaryClientInterceptor
 	stream    []grpc.StreamClientInterceptor
-	mw        []middleware.Middleware
+	mws       []middleware.Middleware
 	discovery registry.Discovery
 	filters   []node.Filter
 }
@@ -103,9 +103,9 @@ func WithTLS(tls *tls.Config) Option {
 	}
 }
 
-func WithMiddleware(mw []middleware.Middleware) Option {
+func WithMiddleware(mws []middleware.Middleware) Option {
 	return func(o *option) {
-		o.mw = mw
+		o.mws = mws
 	}
 }
 
@@ -180,16 +180,23 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		subset:   &resolver.Shuffle{},
 		builtin:  0x03,
 	}
-	opt.mw = []middleware.Middleware{
+	opt.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindClient),
 		logging.Log(middleware.Client, opt.logger),
-		metrics.Metrics(middleware.Client),
+		metrics.Metrics(middleware.Client,
+			metrics.WithCounter(metrics.NewCounter(
+				metrics.Namespace("grpc_client"),
+				metrics.Name("code_count"),
+				metrics.Help("client requests code count"),
+				metrics.SubSystem("call"),
+			)),
+		),
 		breaker.Breaker(),
 	}
 	for _, o := range opts {
 		o(opt)
 	}
-	opt.mw = utils.Filter(opt.mw, opt.builtin)
+	opt.mws = utils.Filter(opt.mws, opt.builtin)
 	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt)}
 	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt)}
 	if len(opt.unary) > 0 {

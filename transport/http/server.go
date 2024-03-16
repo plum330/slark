@@ -143,7 +143,15 @@ func NewServer(opts ...ServerOption) *Server {
 		srv.mws = []middleware.Middleware{
 			tracing.Trace(trace.SpanKindServer),
 			logging.Log(middleware.Server, srv.logger),
-			metrics.Metrics(middleware.Server),
+			metrics.Metrics(middleware.Server,
+				metrics.WithHistogram(metrics.NewHistogram(
+					metrics.Namespace("http_server"),
+					metrics.Name("duration_second"),
+					metrics.Help("http server requests duration second"),
+					metrics.SubSystem("requests"),
+					metrics.Labels([]string{"kind", "operation"}),
+				)),
+			),
 			breaker.Breaker(),
 			shedding.Limit(),
 			recovery.Recovery(srv.logger),

@@ -30,7 +30,7 @@ func (s *Server) unaryServerInterceptor() grpc.UnaryServerInterceptor {
 			ctx, cancel = context.WithTimeout(ctx, s.timeout)
 			defer cancel()
 		}
-		return middleware.ComposeMiddleware(s.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+		return middleware.ComposeMiddleware(s.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return handler(ctx, req)
 		})(ctx, req)
 	}
@@ -44,7 +44,7 @@ func (s *Server) streamServerInterceptor() grpc.StreamServerInterceptor {
 			rsp: Carrier{},
 		}
 		ctx = transport.NewServerContext(ctx, trans)
-		_, err := middleware.ComposeMiddleware(s.mw...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+		_, err := middleware.ComposeMiddleware(s.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			return nil, handler(srv, &ssWrapper{ctx: ctx, ServerStream: ss})
 		})(ctx, nil)
 		return err

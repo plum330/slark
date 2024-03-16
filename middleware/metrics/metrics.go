@@ -51,7 +51,7 @@ func Namespace(ns string) VecOpts {
 	}
 }
 
-func help(h string) VecOpts {
+func Help(h string) VecOpts {
 	return func(o *VecOptions) {
 		o.help = h
 	}
@@ -108,10 +108,7 @@ func WithHistogram(h Histogram) Options {
 }
 
 func Metrics(st middleware.SubType, opts ...Options) middleware.Middleware {
-	o := &Option{
-		counter:   NewCounter(Name("duration")),
-		histogram: NewHistogram(Labels([]string{"kind", "operation"})),
-	}
+	o := &Option{}
 	for _, opt := range opts {
 		opt(o)
 	}
