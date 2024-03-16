@@ -70,7 +70,7 @@ func SnakeCase(s string) string {
 }
 
 func Scheme(scheme string, insecure bool) string {
-	if !insecure {
+	if insecure {
 		return scheme
 	}
 	return scheme + "s"
