@@ -2,18 +2,29 @@ package k8s
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/go-slark/slark/errors"
+	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"net"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	scheme        = "service-scheme"
+	namespacePath = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 )
 
 type Registry struct {
@@ -59,7 +70,34 @@ func NewRegistry(opts ...Option) *Registry {
 }
 
 func (r *Registry) Register(ctx context.Context, svc *registry.Service) error {
-	return nil
+	mp, err := utils.ParseScheme(svc.Endpoint)
+	if err != nil {
+		return err
+	}
+	bytes, err := json.Marshal(mp)
+	if err != nil {
+		return err
+	}
+	bytes, err = json.Marshal(map[string]interface{}{
+		"metadata": metaV1.ObjectMeta{
+			Annotations: map[string]string{
+				scheme: string(bytes),
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	hn, err := os.Hostname()
+	if err != nil {
+		return err
+	}
+	ns, err := os.ReadFile(namespacePath)
+	if err != nil {
+		return err
+	}
+	_, err = r.clientSet.CoreV1().Pods(string(ns)).Patch(ctx, hn, types.StrategicMergePatchType, bytes, metaV1.PatchOptions{})
+	return err
 }
 
 func (r *Registry) Unregister(ctx context.Context, svc *registry.Service) error {
@@ -155,6 +193,11 @@ func (w *watcher) List() ([]*registry.Service, error) {
 	if err != nil {
 		return nil, err
 	}
+	mp := map[string]string{}
+	err = json.Unmarshal([]byte(endpoints.Annotations[scheme]), &mp)
+	if err != nil {
+		return nil, err
+	}
 	svc := make([]*registry.Service, 0, len(endpoints.Subsets))
 	// meta.name --> len(endpoints.Subsets) == 1
 	for _, set := range endpoints.Subsets {
@@ -165,10 +208,15 @@ func (w *watcher) List() ([]*registry.Service, error) {
 			w.port = int(set.Ports[0].Port)
 		}
 		for _, addr := range set.Addresses {
+			port := fmt.Sprintf("%d", w.port)
+			u := &url.URL{
+				Scheme: mp[port],
+				Host:   net.JoinHostPort(addr.IP, port),
+			}
 			s := &registry.Service{
 				Name:     endpoints.Name,
 				Version:  endpoints.ResourceVersion,
-				Endpoint: fmt.Sprintf("%s:%d", addr.IP, w.port),
+				Endpoint: []string{u.String()},
 			}
 			if addr.TargetRef != nil {
 				s.ID = string(addr.TargetRef.UID)

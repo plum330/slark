@@ -176,6 +176,7 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		},
 		insecure: true,
 		size:     32,
+		tm:       3 * time.Second,
 		subset:   &resolver.Shuffle{},
 		builtin:  0x03,
 	}

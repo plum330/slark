@@ -86,7 +86,7 @@ func ParseValidAddr(addr []string, scheme string) (string, error) {
 			return u.Host, nil
 		}
 	}
-	return "", nil
+	return "", errors.New("scheme not found")
 }
 
 func ParseAddr(ln net.Listener, address string) (string, error) {
@@ -147,6 +147,18 @@ func ParseAddr(ln net.Listener, address string) (string, error) {
 		host = net.JoinHostPort(ips[len(ips)-1].String(), port)
 	}
 	return host, nil
+}
+
+func ParseScheme(endpoints []string) (map[string]string, error) {
+	mp := make(map[string]string)
+	for _, endpoint := range endpoints {
+		u, err := url.Parse(endpoint)
+		if err != nil {
+			return nil, err
+		}
+		mp[u.Port()] = u.Scheme
+	}
+	return mp, nil
 }
 
 func Delete[T comparable](ss []T, elem T) []T {
