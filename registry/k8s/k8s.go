@@ -96,7 +96,8 @@ func (r *Registry) Register(ctx context.Context, svc *registry.Service) error {
 	if err != nil {
 		return err
 	}
-	_, err = r.clientSet.CoreV1().Endpoints(string(ns)).Patch(ctx, hn, types.StrategicMergePatchType, bytes, metaV1.PatchOptions{})
+	str := strings.Split(hn, "-")
+	_, err = r.clientSet.CoreV1().Endpoints(string(ns)).Patch(ctx, strings.Join(str[:len(str)-2], "-"), types.StrategicMergePatchType, bytes, metaV1.PatchOptions{})
 	return err
 }
 
