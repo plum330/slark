@@ -168,7 +168,8 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 			KeepaliveTimeout: 2 * time.Second,
 			KeepaliveStream:  true,
 		},
-		addr: "0.0.0.0:0",
+		addr:   "0.0.0.0:9090",
+		logger: logger.GetLogger(),
 		strategy: []Strategy{
 			{
 				Name:  fmt.Sprintf(`"%s"`, "loadBalancingConfig"),

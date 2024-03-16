@@ -41,7 +41,7 @@ func NewClient(objs []*ClientObj, opts ...Option) (*Client, error) {
 	clients := make(map[string]*grpc.ClientConn, len(objs))
 	for _, obj := range objs {
 		if obj.Timout == 0 {
-			obj.Timout = 5 * time.Second
+			obj.Timout = 3 * time.Second
 		}
 		ctx, cancel := context.WithTimeout(context.Background(), obj.Timout)
 		opts = append(opts, WithAddr(obj.Addr))

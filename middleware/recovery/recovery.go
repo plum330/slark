@@ -6,6 +6,7 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"runtime/debug"
 )
 
 func Recovery(l logger.Logger) middleware.Middleware {
@@ -26,6 +27,7 @@ func Recovery(l logger.Logger) middleware.Middleware {
 						"req": fmt.Sprintf("%+v", req),
 						//"error": fmt.Sprintf("%s", buf),
 						"error": fmt.Sprintf("%+v", err),
+						"stack": string(debug.Stack()),
 					}
 					l.Log(ctx, logger.ErrorLevel, fields, "recover")
 					err = errors.ServerUnavailable(errors.Panic, errors.Panic)
