@@ -46,13 +46,14 @@ func NewServer(opts ...ServerOption) *Server {
 		address: "0.0.0.0:9090",
 		health:  health.NewServer(),
 		logger:  logger.GetLogger(),
+		opts:    ServerOpts(),
 		builtin: 0x13,
 	}
 	srv.mw = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
 		recovery.Recovery(srv.logger),
 		// stat
-		metrics.Metrics(),
+		metrics.Metrics(middleware.Server),
 		breaker.Breaker(),
 		validate.Validate(),
 	}
