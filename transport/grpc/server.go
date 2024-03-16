@@ -6,8 +6,10 @@ import (
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
 	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/shedding"
 	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
@@ -47,12 +49,11 @@ func NewServer(opts ...ServerOption) *Server {
 		health:  health.NewServer(),
 		logger:  logger.GetLogger(),
 		opts:    ServerOpts(),
-		builtin: 0x13,
+		builtin: 0x63,
 	}
 	srv.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
-		recovery.Recovery(srv.logger),
-		// stat
+		logging.Log(middleware.Server, srv.logger),
 		metrics.Metrics(middleware.Server,
 			metrics.WithHistogram(metrics.NewHistogram(
 				metrics.Namespace("grpc_server"),
@@ -63,6 +64,8 @@ func NewServer(opts ...ServerOption) *Server {
 			)),
 		),
 		breaker.Breaker(),
+		shedding.Limit(),
+		recovery.Recovery(srv.logger),
 		validate.Validate(),
 	}
 	for _, o := range opts {

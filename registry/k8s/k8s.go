@@ -63,7 +63,7 @@ func NewRegistry(opts ...Option) *Registry {
 	config.BearerTokenFile = ""
 	cs, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err)
+		panic(fmt.Sprintf("k8s registry error:%+v", err))
 	}
 	r.clientSet = cs
 	return r
@@ -96,7 +96,7 @@ func (r *Registry) Register(ctx context.Context, svc *registry.Service) error {
 	if err != nil {
 		return err
 	}
-	_, err = r.clientSet.CoreV1().Pods(string(ns)).Patch(ctx, hn, types.StrategicMergePatchType, bytes, metaV1.PatchOptions{})
+	_, err = r.clientSet.CoreV1().Endpoints(string(ns)).Patch(ctx, hn, types.StrategicMergePatchType, bytes, metaV1.PatchOptions{})
 	return err
 }
 

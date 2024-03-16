@@ -31,7 +31,7 @@ func NewRegistry(cfg clientv3.Config, opts ...Option) *Registry {
 
 	client, err := clientv3.New(cfg)
 	if err != nil {
-		panic(fmt.Sprintf("create etcd err:%+v", err))
+		panic(fmt.Sprintf("etcd registry error:%+v", err))
 	}
 	return &Registry{
 		client: client,

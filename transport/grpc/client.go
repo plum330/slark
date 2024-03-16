@@ -10,6 +10,7 @@ import (
 	"github.com/go-slark/slark/middleware/breaker"
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/metrics"
+	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/tracing"
 	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
@@ -192,6 +193,7 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 			)),
 		),
 		breaker.Breaker(),
+		recovery.Recovery(opt.logger),
 	}
 	for _, o := range opts {
 		o(opt)

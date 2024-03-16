@@ -136,27 +136,25 @@ func NewServer(opts ...ServerOption) *Server {
 		mws:     []middleware.Middleware{},
 		builtin: 0x63, // low -> high
 	}
+	srv.mws = []middleware.Middleware{
+		tracing.Trace(trace.SpanKindServer),
+		logging.Log(middleware.Server, srv.logger),
+		metrics.Metrics(middleware.Server,
+			metrics.WithHistogram(metrics.NewHistogram(
+				metrics.Namespace("http_server"),
+				metrics.Name("duration_second"),
+				metrics.Help("http server requests duration second"),
+				metrics.SubSystem("requests"),
+				metrics.Labels([]string{"kind", "operation"}),
+			)),
+		),
+		breaker.Breaker(),
+		shedding.Limit(),
+		recovery.Recovery(srv.logger),
+		validate.Validate(),
+	}
 	for _, o := range opts {
 		o(srv)
-	}
-	if len(srv.mws) == 0 {
-		srv.mws = []middleware.Middleware{
-			tracing.Trace(trace.SpanKindServer),
-			logging.Log(middleware.Server, srv.logger),
-			metrics.Metrics(middleware.Server,
-				metrics.WithHistogram(metrics.NewHistogram(
-					metrics.Namespace("http_server"),
-					metrics.Name("duration_second"),
-					metrics.Help("http server requests duration second"),
-					metrics.SubSystem("requests"),
-					metrics.Labels([]string{"kind", "operation"}),
-				)),
-			),
-			breaker.Breaker(),
-			shedding.Limit(),
-			recovery.Recovery(srv.logger),
-			validate.Validate(),
-		}
 	}
 	srv.mws = utils.Filter(srv.mws, srv.builtin)
 	srv.TLSConfig = srv.tls
