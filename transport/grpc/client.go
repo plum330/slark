@@ -42,7 +42,7 @@ type option struct {
 	size      int // subset size
 	subset    resolver.Subset
 	insecure  bool
-	builtin   int64
+	enable    int64
 	tm        time.Duration
 	logger    logger.Logger
 	tls       *tls.Config
@@ -74,9 +74,9 @@ func WithAddr(addr string) Option {
 	}
 }
 
-func WithBuiltin(builtin int64) Option {
+func WithEnable(enable int64) Option {
 	return func(o *option) {
-		o.builtin = builtin
+		o.enable = enable
 	}
 }
 
@@ -180,26 +180,19 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		size:     32,
 		tm:       3 * time.Second,
 		subset:   &resolver.Shuffle{},
-		builtin:  0x03,
+		enable:   0x03,
 	}
 	opt.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindClient),
 		logging.Log(middleware.Client, opt.logger),
-		metrics.Metrics(middleware.Client,
-			metrics.WithCounter(metrics.NewCounter(
-				metrics.Namespace("grpc_client"),
-				metrics.Name("code_count"),
-				metrics.Help("client requests code count"),
-				metrics.SubSystem("call"),
-			)),
-		),
+		metrics.Metrics(middleware.Client, metrics.WithCounter(metrics.RequestTotal)),
 		breaker.Breaker(),
 		recovery.Recovery(opt.logger),
 	}
 	for _, o := range opts {
 		o(opt)
 	}
-	opt.mws = utils.Filter(opt.mws, opt.builtin)
+	opt.mws = utils.Filter(opt.mws, opt.enable)
 	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt)}
 	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt)}
 	if len(opt.unary) > 0 {

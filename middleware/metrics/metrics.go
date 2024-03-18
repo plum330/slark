@@ -107,6 +107,23 @@ func WithHistogram(h Histogram) Options {
 	}
 }
 
+var (
+	RequestTotal = NewCounter(
+		Namespace("client"),
+		Name("code_count"),
+		Help("client requests code count"),
+		SubSystem("call"),
+	)
+
+	RequestDuration = NewHistogram(
+		Namespace("server"),
+		Name("duration_second"),
+		Help("server requests duration second"),
+		SubSystem("requests"),
+		Labels([]string{"kind", "operation"}),
+	)
+)
+
 func Metrics(st middleware.SubType, opts ...Options) middleware.Middleware {
 	o := &Option{}
 	for _, opt := range opts {

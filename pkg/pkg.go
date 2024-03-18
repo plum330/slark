@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"errors"
 	"github.com/google/uuid"
@@ -47,11 +46,7 @@ func BuildRequestID() string {
 	return uuid.New().String()
 }
 
-func ParseToken(ctx context.Context, v interface{}) error {
-	token, ok := ctx.Value(Token).(string)
-	if !ok {
-		return errors.New("invalid token")
-	}
+func ParseToken(token string, v any) error {
 	return json.Unmarshal([]byte(token), v)
 }
 

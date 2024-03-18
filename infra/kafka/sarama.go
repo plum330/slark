@@ -88,7 +88,8 @@ func (kp *KafkaProducer) AsyncSend(ctx context.Context, topic, key string, msg [
 			trace.WithSpanKind(kp.Kind()),
 			trace.WithAttributes(attribute.String(msgTopic, topic), attribute.String(msgKey, key), attribute.String(msgValue, string(msg))),
 		}
-		_, span := kp.Start(ctx, "kafka async send", &producerMsgCarrier{pm}, opt...)
+		x, span := kp.Start(ctx, "kafka async send", &producerMsgCarrier{pm}, opt...)
+		pm.Metadata = x
 		defer span.End()
 	}
 	kp.AsyncProducer.Input() <- pm
@@ -103,7 +104,9 @@ func (kp *KafkaProducer) monitor() {
 	go func(ap sarama.AsyncProducer) {
 		for msg = range ap.Successes() {
 			if msg != nil {
-				kp.Log(context.TODO(), logger.DebugLevel, map[string]interface{}{"topic": msg.Topic, "key": msg.Key, "value": msg.Value}, "kafka async produce msg succ")
+				value, _ := msg.Value.Encode()
+				ctx, _ := msg.Metadata.(context.Context)
+				kp.Log(ctx, logger.DebugLevel, map[string]interface{}{"topic": msg.Topic, "key": msg.Key, "value": string(value)}, "kafka async produce msg success")
 			}
 		}
 	}(kp.AsyncProducer)
@@ -115,7 +118,9 @@ func (kp *KafkaProducer) monitor() {
 			}
 
 			if e.Msg != nil {
-				kp.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": e.Err, "topic": e.Msg.Topic, "key": e.Msg.Key, "value": e.Msg.Value}, "kafka async produce msg fail")
+				value, _ := e.Msg.Value.Encode()
+				ctx, _ := e.Msg.Metadata.(context.Context)
+				kp.Log(ctx, logger.ErrorLevel, map[string]interface{}{"error": e.Err, "topic": e.Msg.Topic, "key": e.Msg.Key, "value": string(value)}, "kafka async produce msg fail")
 			} else {
 				kp.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": e.Err}, "kafka async produce msg fail")
 			}

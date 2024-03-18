@@ -34,7 +34,7 @@ type Server struct {
 	network  string
 	address  string
 	basePath string
-	builtin  int64
+	enable   int64
 	engine   *gin.Engine
 	logger   logger.Logger
 	codecs   *Codecs
@@ -91,9 +91,9 @@ func BasePath(bassPath string) ServerOption {
 	}
 }
 
-func Builtin(builtin int64) ServerOption {
+func Enable(enable int64) ServerOption {
 	return func(s *Server) {
-		s.builtin = builtin
+		s.enable = enable
 	}
 }
 
@@ -134,20 +134,12 @@ func NewServer(opts ...ServerOption) *Server {
 		},
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
 		mws:     []middleware.Middleware{},
-		builtin: 0x63, // low -> high
+		enable:  0x63, // low -> high
 	}
 	srv.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
 		logging.Log(middleware.Server, srv.logger),
-		metrics.Metrics(middleware.Server,
-			metrics.WithHistogram(metrics.NewHistogram(
-				metrics.Namespace("http_server"),
-				metrics.Name("duration_second"),
-				metrics.Help("http server requests duration second"),
-				metrics.SubSystem("requests"),
-				metrics.Labels([]string{"kind", "operation"}),
-			)),
-		),
+		metrics.Metrics(middleware.Server, metrics.WithHistogram(metrics.RequestDuration)),
 		breaker.Breaker(),
 		shedding.Limit(),
 		recovery.Recovery(srv.logger),
@@ -156,7 +148,7 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.mws = utils.Filter(srv.mws, srv.builtin)
+	srv.mws = utils.Filter(srv.mws, srv.enable)
 	srv.TLSConfig = srv.tls
 	srv.handlers = append([]handler.Middleware{func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

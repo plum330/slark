@@ -12,9 +12,13 @@ import (
 
 func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			md = metadata.MD{}
+		}
 		trans := &Transport{
-			operation: cc.Target(),
-			req:       Carrier{},
+			operation: method,
+			req:       Carrier(md),
 			rsp:       Carrier{},
 			filters:   opt.filters,
 		}
@@ -25,6 +29,7 @@ func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 			defer cancel()
 		}
 		_, err := middleware.ComposeMiddleware(opt.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+			ctx = metadata.NewOutgoingContext(ctx, md)
 			return reply, invoker(ctx, method, req, reply, cc, opts...)
 		})(ctx, req)
 		return err
@@ -33,14 +38,19 @@ func unaryClientInterceptor(opt *option) grpc.UnaryClientInterceptor {
 
 func streamClientInterceptor(opt *option) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		md, ok := metadata.FromOutgoingContext(ctx)
+		if !ok {
+			md = metadata.MD{}
+		}
 		trans := &Transport{
 			operation: method,
-			req:       Carrier{},
+			req:       Carrier(md),
 			rsp:       Carrier{},
 			filters:   opt.filters,
 		}
 		ctx = transport.NewClientContext(ctx, trans)
 		rsp, err := middleware.ComposeMiddleware(opt.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
+			ctx = metadata.NewOutgoingContext(ctx, md)
 			return streamer(ctx, desc, cc, method, opts...)
 		})(ctx, nil)
 		return rsp.(grpc.ClientStream), err

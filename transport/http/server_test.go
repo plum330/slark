@@ -17,7 +17,7 @@ hey -z 1s -c 110 -q 1 'http://localhost:8080/ping' (压测110个并发,执行1s)
 */
 
 func TestServer(t *testing.T) {
-	srv := NewServer(Builtin(0x63))
+	srv := NewServer(Enable(0x63))
 	r := NewRouter(srv)
 	r.Handle(http.MethodGet, "/ping", func(ctx *Context) error {
 		time.Sleep(1 * time.Millisecond)
@@ -27,7 +27,7 @@ func TestServer(t *testing.T) {
 }
 
 func TestBreaker(t *testing.T) {
-	srv := NewServer(Builtin(0x63))
+	srv := NewServer(Enable(0x63))
 	r := NewRouter(srv)
 	rr := rand.NewSource(time.Now().UnixMilli())
 	r.Handle(http.MethodGet, "/ping", func(ctx *Context) error {

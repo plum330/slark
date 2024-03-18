@@ -34,7 +34,7 @@ type Server struct {
 	logger   logger.Logger
 	network  string
 	address  string
-	builtin  int64
+	enable   int64
 	timeout  time.Duration
 	mws      []middleware.Middleware
 	opts     []grpc.ServerOption
@@ -49,20 +49,12 @@ func NewServer(opts ...ServerOption) *Server {
 		health:  health.NewServer(),
 		logger:  logger.GetLogger(),
 		opts:    ServerOpts(),
-		builtin: 0x63,
+		enable:  0x63,
 	}
 	srv.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
 		logging.Log(middleware.Server, srv.logger),
-		metrics.Metrics(middleware.Server,
-			metrics.WithHistogram(metrics.NewHistogram(
-				metrics.Namespace("grpc_server"),
-				metrics.Name("duration_second"),
-				metrics.Help("grpc server requests duration second"),
-				metrics.SubSystem("requests"),
-				metrics.Labels([]string{"kind", "operation"}),
-			)),
-		),
+		metrics.Metrics(middleware.Server, metrics.WithHistogram(metrics.RequestDuration)),
 		breaker.Breaker(),
 		shedding.Limit(),
 		recovery.Recovery(srv.logger),
@@ -71,7 +63,7 @@ func NewServer(opts ...ServerOption) *Server {
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.mws = utils.Filter(srv.mws, srv.builtin)
+	srv.mws = utils.Filter(srv.mws, srv.enable)
 	var grpcOpts []grpc.ServerOption
 	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
 	srv.stream = append(srv.stream, srv.streamServerInterceptor())
@@ -168,9 +160,9 @@ func Logger(logger logger.Logger) ServerOption {
 	}
 }
 
-func Builtin(builtin int64) ServerOption {
+func Enable(enable int64) ServerOption {
 	return func(server *Server) {
-		server.builtin = builtin
+		server.enable = enable
 	}
 }
 
