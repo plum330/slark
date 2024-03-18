@@ -217,6 +217,7 @@ func NewKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) (*KafkaCo
 		worker:        conf.Worker,
 		chs:           make([]chan *sarama.ConsumerMessage, conf.Worker),
 	}
+	k.ConsumerGroupHandler = k
 	for i := 0; i < k.worker; i++ {
 		ch := make(chan *sarama.ConsumerMessage, 1024)
 		k.chs[i] = ch
