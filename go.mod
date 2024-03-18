@@ -27,7 +27,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spaolacci/murmur3 v1.1.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	go.etcd.io/etcd/client/v3 v3.5.9
 	go.mongodb.org/mongo-driver v1.14.0
