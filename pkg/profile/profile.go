@@ -1,4 +1,4 @@
-package pprof
+package profile
 
 import (
 	_ "github.com/zeromicro/go-zero/core/proc"
@@ -26,6 +26,24 @@ type Holmes struct {
 }
 
 type Option func(*Holmes)
+
+func Endpoint(endpoint string) Option {
+	return func(h *Holmes) {
+		h.endpoint = endpoint
+	}
+}
+
+func Name(name string) Option {
+	return func(h *Holmes) {
+		h.name = name
+	}
+}
+
+func Timeout(tm time.Duration) Option {
+	return func(h *Holmes) {
+		h.timeout = tm
+	}
+}
 
 func NewHolmes(opts ...Option) (*holmes.Holmes, error) {
 	h := &Holmes{
