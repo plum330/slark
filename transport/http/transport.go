@@ -27,6 +27,10 @@ func (c Carrier) Keys() []string {
 	return keys
 }
 
+func (c Carrier) Values(key string) []string {
+	return http.Header(c).Values(key)
+}
+
 type Transport struct {
 	Operation string
 	Req       Carrier

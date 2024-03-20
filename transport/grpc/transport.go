@@ -32,6 +32,10 @@ func (c Carrier) Keys() []string {
 	return keys
 }
 
+func (c Carrier) Values(key string) []string {
+	return metadata.MD(c).Get(key)
+}
+
 type Transport struct {
 	operation string
 	req       Carrier

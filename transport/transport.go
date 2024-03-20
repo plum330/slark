@@ -29,6 +29,7 @@ type Carrier interface {
 	Add(k string, v string)
 	Get(k string) string
 	Keys() []string
+	Values(k string) []string
 }
 
 type Transporter interface {
