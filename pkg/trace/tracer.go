@@ -2,8 +2,13 @@ package trace
 
 import (
 	"context"
+	"github.com/go-slark/slark/pkg/noop"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -39,10 +44,18 @@ func Propagator(propagator propagation.TextMapPropagator) Option {
 }
 
 func NewTracer(kind trace.SpanKind, opts ...Option) *Tracer {
+	exporter, _ := stdouttrace.New(stdouttrace.WithWriter(noop.Writer()))
 	tracer := &Tracer{
-		provider:   otel.GetTracerProvider(),
+		provider: sdktrace.NewTracerProvider(
+			sdktrace.WithResource(resource.NewWithAttributes(
+				semconv.SchemaURL,
+				semconv.ServiceName("slark"),
+			)),
+			sdktrace.WithBatcher(exporter),
+		),
 		propagator: propagation.NewCompositeTextMapPropagator(propagation.Baggage{}, propagation.TraceContext{}),
 		kind:       kind,
+		name:       "slark",
 	}
 	for _, opt := range opts {
 		opt(tracer)

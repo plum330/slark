@@ -4,6 +4,13 @@ import (
 	"context"
 )
 
+type SubType int
+
+const (
+	Client SubType = iota + 1
+	Server
+)
+
 type Handler func(context.Context, interface{}) (interface{}, error)
 
 type Middleware func(Handler) Handler

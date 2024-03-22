@@ -7,6 +7,7 @@ import (
 	"go.mongodb.org/mongo-driver/event"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/contrib/instrumentation/go.mongodb.org/mongo-driver/mongo/otelmongo"
 	"time"
 )
 
@@ -41,6 +42,7 @@ func client(c *Config) (*mongo.Client, error) {
 			},
 		})
 	}
+	opts.SetMonitor(otelmongo.NewMonitor())
 	opts.ApplyURI(c.Url)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.Timeout)*time.Second)
 	defer cancel()

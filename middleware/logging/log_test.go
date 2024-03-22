@@ -15,7 +15,7 @@ func (l *mockLogger) Log(ctx context.Context, level uint, fields map[string]inte
 }
 
 func TestLoggerError(t *testing.T) {
-	_, _ = Log(&mockLogger{})(func(ctx context.Context, req interface{}) (interface{}, error) {
+	_, _ = Log(ServerLog, &mockLogger{})(func(ctx context.Context, req interface{}) (interface{}, error) {
 		fmt.Println("test logger error")
 		return nil, errors.BadRequest("bad request", "bad request")
 	})(context.TODO(), 3)
@@ -23,7 +23,7 @@ func TestLoggerError(t *testing.T) {
 
 func TestLogger(t *testing.T) {
 	time.Sleep(time.Second)
-	_, _ = Log(&mockLogger{})(func(ctx context.Context, req interface{}) (interface{}, error) {
+	_, _ = Log(ClientLog, &mockLogger{})(func(ctx context.Context, req interface{}) (interface{}, error) {
 		fmt.Println("test logger")
 		return nil, nil
 	})(context.TODO(), 1)

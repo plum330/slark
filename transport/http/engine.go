@@ -7,7 +7,6 @@ import (
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/pkg"
 	"net/http"
 )
 
@@ -20,7 +19,7 @@ type EngineConfig struct {
 func Engine(cfg *EngineConfig) ServerOption {
 	return func(server *Server) {
 		gin.SetMode(cfg.Mode)
-		engine := server.Engine
+		engine := server.engine
 		if cfg.FileSystem != nil {
 			engine.StaticFS(fmt.Sprintf("%s/doc", cfg.BasePath), cfg.FileSystem)
 		}
@@ -47,9 +46,7 @@ func HandleMiddlewares(mw ...middleware.Middleware) gin.HandlerFunc {
 				_ = ctx.Error(err)
 			}
 			rsp := &Response{
-				Header: &Header{
-					RayID: reqCtx.Value(utils.RayID),
-				},
+				Header: &Header{},
 			}
 			rsp.Code = int(e.Status.Code)
 			rsp.Msg = e.Status.Message

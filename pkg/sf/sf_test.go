@@ -9,14 +9,13 @@ import (
 )
 
 func TestSF(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
-	g := NewGroup()
+	sf := NewSingFlight()
 	var wg sync.WaitGroup
 	wg.Add(10)
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
-			data, _, _ := g.Do("test", func() (interface{}, error) {
+			data, _ := sf.Do("test", func() (any, error) {
 				time.Sleep(2 * time.Second)
 				return rand.Int63(), nil
 			})

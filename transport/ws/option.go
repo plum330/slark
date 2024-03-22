@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/transport/http/handler"
 	"net/http"
@@ -40,7 +41,7 @@ func Path(path string) ServerOption {
 	}
 }
 
-func Before(before func(w http.ResponseWriter, r *http.Request) (interface{}, error)) ServerOption {
+func Before(before func(ctx context.Context, req *http.Request) (interface{}, error)) ServerOption {
 	return func(s *Server) {
 		s.before = before
 	}
@@ -113,6 +114,12 @@ func WriteTime(wt time.Duration) Option {
 func HandShakeTime(hst time.Duration) Option {
 	return func(opt *SessionOption) {
 		opt.hsTime = hst
+	}
+}
+
+func CloseWait(cw time.Duration) Option {
+	return func(opt *SessionOption) {
+		opt.closeWait = cw
 	}
 }
 

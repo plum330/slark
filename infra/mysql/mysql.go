@@ -6,6 +6,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
+	"gorm.io/plugin/opentelemetry/tracing"
 	"time"
 )
 
@@ -56,6 +57,10 @@ func New(c *Config) (*Client, error) {
 
 	if err = sqlDB.Ping(); err != nil {
 		_ = sqlDB.Close()
+		return nil, err
+	}
+	err = db.Use(tracing.NewPlugin(tracing.WithoutMetrics()))
+	if err != nil {
 		return nil, err
 	}
 	return &Client{DB: db}, nil

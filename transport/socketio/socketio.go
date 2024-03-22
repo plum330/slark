@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/logger"
-	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/transport/http/handler"
 	socketio "github.com/googollee/go-socket.io"
 	"github.com/googollee/go-socket.io/engineio"
@@ -50,10 +49,11 @@ func NewServer(opts ...Option) *Server {
 			Network: "tcp",
 			DB:      0,
 		},
-		logger:  logger.GetLogger(),
-		network: "tcp",
-		address: "0.0.0.0:0",
-		path:    "/socket.io/",
+		logger:   logger.GetLogger(),
+		network:  "tcp",
+		address:  "0.0.0.0:0",
+		path:     "/socket.io/",
+		handlers: []handler.Middleware{handler.CORS()},
 	}
 	for _, opt := range opts {
 		opt(srv)
@@ -88,7 +88,6 @@ func (s *Server) Start() error {
 			return
 		}
 	}()
-	s.handlers = append(s.handlers, handler.WrapMiddleware(recovery.Recovery(s.logger)))
 	http.Handle(s.path, handler.ComposeMiddleware(s, s.handlers...))
 	err := http.Serve(s.listener, nil)
 	if !errors.Is(err, http.ErrServerClosed) {

@@ -4,14 +4,21 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/breaker"
 	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/shedding"
+	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/transport"
 	"github.com/go-slark/slark/transport/http/handler"
+	"go.opentelemetry.io/otel/trace"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,9 +34,10 @@ type Server struct {
 	network  string
 	address  string
 	basePath string
-	Engine   *gin.Engine
+	enable   int64
+	engine   *gin.Engine
 	logger   logger.Logger
-	Codecs   *Codecs
+	codecs   *Codecs
 	headers  []string
 }
 
@@ -83,15 +91,21 @@ func BasePath(bassPath string) ServerOption {
 	}
 }
 
+func Enable(enable int64) ServerOption {
+	return func(s *Server) {
+		s.enable = enable
+	}
+}
+
 func ErrorCodec(ec func(*http.Request, http.ResponseWriter, error)) ServerOption {
 	return func(server *Server) {
-		server.Codecs.errorEncoder = ec
+		server.codecs.errorEncoder = ec
 	}
 }
 
 func RspCodec(rc func(*http.Request, http.ResponseWriter, interface{}) error) ServerOption {
 	return func(server *Server) {
-		server.Codecs.rspEncoder = rc
+		server.codecs.rspEncoder = rc
 	}
 }
 
@@ -101,19 +115,17 @@ func Headers(headers []string) ServerOption {
 	}
 }
 
-// trace -> log -> metric -> breaker -> recovery -> ...
-
 func NewServer(opts ...ServerOption) *Server {
 	engine := gin.New()
 	srv := &Server{
 		network:  "tcp",
-		address:  "0.0.0.0:0",
+		address:  "0.0.0.0:8080",
 		basePath: "/",
 		logger:   logger.GetLogger(),
 		Server:   &http.Server{},
-		handlers: []handler.Middleware{handler.BuildRequestID(), handler.CORS()},
-		Engine:   engine,
-		Codecs: &Codecs{
+		handlers: []handler.Middleware{handler.CORS()},
+		engine:   engine,
+		codecs: &Codecs{
 			bodyDecoder:  RequestBodyDecoder,
 			varsDecoder:  RequestVarsDecoder,
 			queryDecoder: RequestQueryDecoder,
@@ -121,14 +133,35 @@ func NewServer(opts ...ServerOption) *Server {
 			errorEncoder: ErrorEncoder,
 		},
 		headers: []string{utils.Token, utils.Authorization, utils.UserAgent, utils.XForwardedMethod, utils.XForwardedIP, utils.XForwardedURI, utils.Extension},
+		mws:     []middleware.Middleware{},
+		enable:  0x63, // low -> high
 	}
-	srv.Handler = srv.Engine
-	srv.TLSConfig = srv.tls
+	srv.mws = []middleware.Middleware{
+		tracing.Trace(trace.SpanKindServer),
+		logging.Log(middleware.Server, srv.logger),
+		metrics.Metrics(middleware.Server, metrics.WithHistogram(metrics.RequestDuration)),
+		breaker.Breaker(),
+		shedding.Limit(),
+		recovery.Recovery(srv.logger),
+		validate.Validate(),
+	}
 	for _, o := range opts {
 		o(srv)
 	}
-	srv.mws = append(srv.mws, logging.Log(srv.logger), validate.Validate(), recovery.Recovery(srv.logger))
-	srv.Handler = handler.ComposeMiddleware(srv.Handler, srv.handlers...)
+	srv.mws = utils.Filter(srv.mws, srv.enable)
+	srv.TLSConfig = srv.tls
+	srv.handlers = append([]handler.Middleware{func(handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			trans := &Transport{
+				Operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
+				Req:       Carrier(r.Header),
+				Rsp:       Carrier{},
+			}
+			r = r.WithContext(transport.NewServerContext(r.Context(), trans))
+			handler.ServeHTTP(w, r)
+		})
+	}})
+	srv.Handler = handler.ComposeMiddleware(srv.engine, srv.handlers...)
 	srv.err = srv.listen()
 	return srv
 }
@@ -152,6 +185,10 @@ func (s *Server) Endpoint() (*url.URL, error) {
 		Host:   host,
 	}
 	return u, nil
+}
+
+func (s *Server) Engine() *gin.Engine {
+	return s.engine
 }
 
 func (s *Server) Start() error {

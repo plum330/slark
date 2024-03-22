@@ -24,7 +24,7 @@ func (h *Hystrix) Allow() error {
 	return errors.New("breaker open request forbidden")
 }
 
-func (h *Hystrix) Fail() {
+func (h *Hystrix) Fail(reason string) {
 	_ = h.CircuitBreaker.ReportEvent([]string{"failure"}, time.Now(), time.Second)
 }
 

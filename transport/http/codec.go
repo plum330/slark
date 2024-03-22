@@ -98,9 +98,8 @@ func SetContentType(subtype string) string {
 }
 
 type Header struct {
-	Code  int         `json:"code"`
-	RayID interface{} `json:"ray_id"`
-	Msg   string      `json:"msg"`
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
 }
 
 type Response struct {
@@ -111,9 +110,7 @@ type Response struct {
 func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) error {
 	r := &Response{
 		Header: &Header{
-			Code:  http.StatusOK,
-			RayID: req.Context().Value(utils.RayID),
-			Msg:   "成功",
+			Msg: "成功",
 		},
 		Data: v,
 	}
@@ -133,7 +130,7 @@ func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) 
 	data = append(data, pb...)
 	data = append(data, '}')
 	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
-	rsp.WriteHeader(http.StatusOK)
+	rsp.WriteHeader(0)
 	_, err = rsp.Write(data)
 	return err
 }
@@ -142,39 +139,13 @@ func ErrorEncoder(req *http.Request, rsp http.ResponseWriter, err error) {
 	e := errors.FromError(err)
 	response := &Response{
 		Header: &Header{
-			Code:  int(e.Code),
-			RayID: req.Context().Value(utils.RayID),
-			Msg:   e.Message,
+			Code: int(e.Code),
+			Msg:  e.Message,
 		},
 	}
 	codec, _ := Codec(req, "*") // utils.Accept
-	data, err := codec.Marshal(response)
-	if err != nil {
-		rsp.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	data, _ := codec.Marshal(response)
 	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
-	rsp.WriteHeader(http.StatusOK)
-	_, _ = rsp.Write(data)
-}
-
-func OverloadErrorEncoder(req *http.Request, rsp http.ResponseWriter, err error) {
-	e := errors.FromError(err)
-	code := int(e.Code)
-	response := &Response{
-		Header: &Header{
-			Code:  code,
-			RayID: req.Context().Value(utils.RayID),
-			Msg:   e.Message,
-		},
-	}
-	codec, _ := Codec(req, "*") // utils.Accept
-	data, err := codec.Marshal(response)
-	if err != nil {
-		rsp.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
-	rsp.WriteHeader(code)
+	rsp.WriteHeader(int(e.Code))
 	_, _ = rsp.Write(data)
 }

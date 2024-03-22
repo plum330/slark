@@ -6,7 +6,7 @@ import "sync"
 
 type Breaker interface {
 	Allow() error
-	Fail()
+	Fail(reason string)
 	Succeed()
 }
 
@@ -29,7 +29,7 @@ func NewBreaker(opts ...Option) *Breakers {
 		bre: make(map[string]Breaker),
 		l:   sync.RWMutex{},
 		f: func() Breaker {
-			return &Noop{}
+			return NewGoogleBreaker()
 		},
 	}
 	for _, opt := range opts {

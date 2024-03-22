@@ -5,9 +5,15 @@ import (
 	"crypto/tls"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/shedding"
+	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
@@ -28,7 +34,9 @@ type Server struct {
 	logger   logger.Logger
 	network  string
 	address  string
-	mw       []middleware.Middleware
+	enable   int64
+	timeout  time.Duration
+	mws      []middleware.Middleware
 	opts     []grpc.ServerOption
 	unary    []grpc.UnaryServerInterceptor
 	stream   []grpc.StreamServerInterceptor
@@ -37,19 +45,25 @@ type Server struct {
 func NewServer(opts ...ServerOption) *Server {
 	srv := &Server{
 		network: "tcp",
-		address: "0.0.0.0:0",
+		address: "0.0.0.0:9090",
 		health:  health.NewServer(),
 		logger:  logger.GetLogger(),
+		opts:    ServerOpts(),
+		enable:  0x63,
+	}
+	srv.mws = []middleware.Middleware{
+		tracing.Trace(trace.SpanKindServer),
+		logging.Log(middleware.Server, srv.logger),
+		metrics.Metrics(middleware.Server, metrics.WithHistogram(metrics.RequestDuration)),
+		breaker.Breaker(),
+		shedding.Limit(),
+		recovery.Recovery(srv.logger),
+		validate.Validate(),
 	}
 	for _, o := range opts {
 		o(srv)
 	}
-
-	if len(srv.mw) == 0 {
-		srv.mw = make([]middleware.Middleware, 0)
-	}
-	srv.mw = append(srv.mw, validate.Validate(), recovery.Recovery(srv.logger))
-
+	srv.mws = utils.Filter(srv.mws, srv.enable)
 	var grpcOpts []grpc.ServerOption
 	srv.unary = append(srv.unary, srv.unaryServerInterceptor())
 	srv.stream = append(srv.stream, srv.streamServerInterceptor())
@@ -122,6 +136,12 @@ func Address(addr string) ServerOption {
 	}
 }
 
+func Timeout(tm time.Duration) ServerOpt {
+	return func(s *serverOpt) {
+		s.timeout = tm
+	}
+}
+
 func Listener(l net.Listener) ServerOption {
 	return func(s *Server) {
 		s.listener = l
@@ -137,6 +157,12 @@ func TLS(tls *tls.Config) ServerOption {
 func Logger(logger logger.Logger) ServerOption {
 	return func(server *Server) {
 		server.logger = logger
+	}
+}
+
+func Enable(enable int64) ServerOption {
+	return func(server *Server) {
+		server.enable = enable
 	}
 }
 
@@ -158,9 +184,9 @@ func ServerOptions(opts []grpc.ServerOption) ServerOption {
 	}
 }
 
-func Middleware(mw []middleware.Middleware) ServerOption {
+func Middleware(mws []middleware.Middleware) ServerOption {
 	return func(server *Server) {
-		server.mw = mw
+		server.mws = mws
 	}
 }
 

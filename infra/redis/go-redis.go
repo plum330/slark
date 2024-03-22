@@ -2,15 +2,12 @@ package redis
 
 import (
 	"context"
-	"errors"
-	"fmt"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 	"time"
 )
 
-var redisClient *redis.Client
-
-type RedisClientConfig struct {
+type Config struct {
 	Address            string `json:"address"`
 	Password           string `json:"password"`
 	DB                 int    `json:"db"`
@@ -27,28 +24,11 @@ type RedisClientConfig struct {
 	MaxRetryBackoff    int    `json:"max_retry_backoff"`
 }
 
-func InitRedisClient(c *RedisClientConfig) {
-	client, err := createRedisClient(c)
-	if err != nil {
-		panic(errors.New(fmt.Sprintf("redis client %+v error %v", c, err)))
-	}
-	redisClient = client
-
+type Client struct {
+	*redis.Client
 }
 
-func AppendRedisClients(config *RedisClientConfig) {
-	if redisClient == nil {
-		InitRedisClient(config)
-	}
-
-	client, err := createRedisClient(config)
-	if err != nil {
-		panic(errors.New(fmt.Sprintf("redis client %+v error %v", config, err)))
-	}
-	redisClient = client
-}
-
-func createRedisClient(c *RedisClientConfig) (*redis.Client, error) {
+func NewClient(c *Config) (*Client, error) {
 	options := &redis.Options{
 		Network:  "tcp",
 		Addr:     c.Address,
@@ -82,17 +62,13 @@ func createRedisClient(c *RedisClientConfig) (*redis.Client, error) {
 	}
 	client := redis.NewClient(options)
 	_, err := client.Ping(context.TODO()).Result()
-	return client, err
-}
-
-func GetRedisClient() *redis.Client {
-	return redisClient
-}
-
-func CloseRedisClients() error {
-	if redisClient == nil {
-		return nil
+	if err != nil {
+		return nil, err
 	}
+	err = redisotel.InstrumentTracing(client)
+	return &Client{Client: client}, err
+}
 
-	return redisClient.Close()
+func (c *Client) Close() error {
+	return c.Client.Close()
 }

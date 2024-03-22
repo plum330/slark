@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/logger"
+	"runtime/debug"
 	"sync"
 )
 
@@ -11,7 +12,11 @@ func GoSafe(ctx context.Context, fn func()) {
 	go func() {
 		defer func(ctx context.Context) {
 			if r := recover(); r != nil {
-				logger.Log(ctx, logger.ErrorLevel, map[string]interface{}{"error": fmt.Sprintf("%+v", r)}, "routine recover")
+				fields := map[string]interface{}{
+					"error": fmt.Sprintf("%v", r),
+					"stack": string(debug.Stack()),
+				}
+				logger.Log(ctx, logger.ErrorLevel, fields, "routine recover")
 			}
 		}(ctx)
 		fn()

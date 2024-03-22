@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/transport"
 	"github.com/go-slark/slark/transport/http/handler"
 	"net/http"
 	"testing"
@@ -14,10 +15,11 @@ func TestWebsocket(t *testing.T) {
 		Address("0.0.0.0:9090"),
 		Path("/ws"),
 		Handlers(handler.CORS()),
-		Before(func(w http.ResponseWriter, r *http.Request) (interface{}, error) {
-			token, _ := r.Context().Value(utils.Token).(string)
-			*r = *r.WithContext(context.WithValue(r.Context(), utils.Token, token))
-			return nil, nil
+		Before(func(ctx context.Context, r *http.Request) (interface{}, error) {
+			r.Header.Add(utils.Token, "http head test")
+			trans, _ := transport.FromServerContext(ctx)
+			fmt.Println("from server context:", trans.ReqCarrier().Get(utils.Token))
+			return trans.ReqCarrier().Get(utils.Token), nil
 			//return errors.BadRequest("请求错误", "REQUEST_ERROR")
 		}),
 		After(func(s *Session) error {

@@ -46,7 +46,7 @@ func Timeout(tm time.Duration) ClientOption {
 	}
 }
 
-func Transport(tr *http.Transport) ClientOption {
+func WithTransport(tr *http.Transport) ClientOption {
 	return func(client *Client) {
 		client.transport = tr
 	}

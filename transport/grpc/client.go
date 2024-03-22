@@ -5,10 +5,18 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
+	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/logging"
+	"github.com/go-slark/slark/middleware/metrics"
+	"github.com/go-slark/slark/middleware/recovery"
+	"github.com/go-slark/slark/middleware/tracing"
+	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/registry"
 	"github.com/go-slark/slark/transport/grpc/balancer/node"
 	"github.com/go-slark/slark/transport/grpc/resolver"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,12 +42,14 @@ type option struct {
 	size      int // subset size
 	subset    resolver.Subset
 	insecure  bool
+	enable    int64
 	tm        time.Duration
+	logger    logger.Logger
 	tls       *tls.Config
 	opts      []grpc.DialOption
 	unary     []grpc.UnaryClientInterceptor
 	stream    []grpc.StreamClientInterceptor
-	mw        []middleware.Middleware
+	mws       []middleware.Middleware
 	discovery registry.Discovery
 	filters   []node.Filter
 }
@@ -52,9 +62,21 @@ func WithTimeout(tm time.Duration) Option {
 	}
 }
 
+func WithLogger(l logger.Logger) Option {
+	return func(o *option) {
+		o.logger = l
+	}
+}
+
 func WithAddr(addr string) Option {
 	return func(o *option) {
 		o.addr = addr
+	}
+}
+
+func WithEnable(enable int64) Option {
+	return func(o *option) {
+		o.enable = enable
 	}
 }
 
@@ -82,9 +104,9 @@ func WithTLS(tls *tls.Config) Option {
 	}
 }
 
-func WithMiddleware(mw []middleware.Middleware) Option {
+func WithMiddleware(mws []middleware.Middleware) Option {
 	return func(o *option) {
-		o.mw = mw
+		o.mws = mws
 	}
 }
 
@@ -146,7 +168,8 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 			KeepaliveTimeout: 2 * time.Second,
 			KeepaliveStream:  true,
 		},
-		addr: "0.0.0.0:0",
+		addr:   "0.0.0.0:9090",
+		logger: logger.GetLogger(),
 		strategy: []Strategy{
 			{
 				Name:  fmt.Sprintf(`"%s"`, "loadBalancingConfig"),
@@ -155,12 +178,21 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		},
 		insecure: true,
 		size:     32,
+		tm:       3 * time.Second,
 		subset:   &resolver.Shuffle{},
+		enable:   0x03,
+	}
+	opt.mws = []middleware.Middleware{
+		tracing.Trace(trace.SpanKindClient),
+		logging.Log(middleware.Client, opt.logger),
+		metrics.Metrics(middleware.Client, metrics.WithCounter(metrics.RequestTotal)),
+		breaker.Breaker(),
+		recovery.Recovery(opt.logger),
 	}
 	for _, o := range opts {
 		o(opt)
 	}
-
+	opt.mws = utils.Filter(opt.mws, opt.enable)
 	unary := []grpc.UnaryClientInterceptor{unaryClientInterceptor(opt)}
 	stream := []grpc.StreamClientInterceptor{streamClientInterceptor(opt)}
 	if len(opt.unary) > 0 {
