@@ -26,7 +26,7 @@ require (
 	github.com/rs/cors v1.8.3
 	github.com/rs/xid v1.5.0
 	github.com/segmentio/kafka-go v0.4.47
-	github.com/sirupsen/logrus v1.9.2
+	github.com/sirupsen/logrus v1.9.3
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/zeromicro/go-zero v1.6.3
