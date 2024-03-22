@@ -13,7 +13,7 @@ require (
 	github.com/go-playground/form/v4 v4.2.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/golang/glog v1.2.0
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/googollee/go-socket.io v1.7.0
@@ -52,7 +52,7 @@ require (
 	gorm.io/gorm v1.25.7
 	gorm.io/plugin/opentelemetry v0.1.4
 	k8s.io/api v0.29.2
-	k8s.io/apimachinery v0.29.2
+	k8s.io/apimachinery v0.29.3
 	k8s.io/client-go v0.29.2
 	mosn.io/holmes v1.0.2
 )
