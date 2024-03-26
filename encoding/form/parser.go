@@ -4,7 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/go-slark/slark/errors"
-	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/stringz"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
@@ -395,7 +395,7 @@ func parseBytes(v string) (proto.Message, error) {
 func parseFieldMask(v string) (proto.Message, error) {
 	fm := &fieldmaskpb.FieldMask{}
 	for _, fv := range strings.Split(v, ",") {
-		fm.Paths = append(fm.Paths, utils.SnakeCase(fv))
+		fm.Paths = append(fm.Paths, stringz.SnakeCase(fv))
 	}
 	return fm, nil
 }

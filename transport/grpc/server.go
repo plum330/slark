@@ -13,6 +13,7 @@ import (
 	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/endpoint"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -111,12 +112,12 @@ func (s *Server) listen() error {
 }
 
 func (s *Server) Endpoint() (*url.URL, error) {
-	host, err := utils.ParseAddr(s.listener, s.address)
+	host, err := endpoint.ParseAddr(s.listener, s.address)
 	if err != nil {
 		return nil, err
 	}
 	u := &url.URL{
-		Scheme: utils.Scheme("grpc", s.tls == nil),
+		Scheme: endpoint.Scheme("grpc", s.tls == nil),
 		Host:   host,
 	}
 	return u, nil

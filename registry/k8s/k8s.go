@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/go-slark/slark/errors"
-	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/endpoint"
 	"github.com/go-slark/slark/registry"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,7 +70,7 @@ func NewRegistry(opts ...Option) *Registry {
 }
 
 func (r *Registry) Register(ctx context.Context, svc *registry.Service) error {
-	mp, err := utils.ParseScheme(svc.Endpoint)
+	mp, err := endpoint.ParseScheme(svc.Endpoint)
 	if err != nil {
 		return err
 	}

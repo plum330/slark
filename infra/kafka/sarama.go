@@ -32,7 +32,6 @@ type ProducerConf struct {
 	ReturnSuccess bool     `mapstructure:"return_success"`
 	ReturnErrors  bool     `mapstructure:"return_errors"`
 	Version       string   `mapstructure:"version"`
-	TraceEnable   bool     `mapstructure:"trace_enable"`
 }
 
 type ConsumerGroupConf struct {
@@ -46,7 +45,6 @@ type ConsumerGroupConf struct {
 	WorkerNum    uint          `mapstructure:"worker_num"`
 	Version      string        `mapstructure:"version"`
 	Worker       int           `mapstructure:"worker"`
-	TraceEnable  bool          `mapstructure:"trace_enable"`
 }
 
 type KafkaConf struct {
@@ -141,9 +139,7 @@ func NewKafkaProducer(conf *ProducerConf, opts ...tracing.Option) (*KafkaProduce
 		SyncProducer:  sp,
 		AsyncProducer: ap,
 		Logger:        logger.GetLogger(),
-	}
-	if conf.TraceEnable {
-		kp.Tracer = tracing.NewTracer(trace.SpanKindProducer, opts...)
+		Tracer:        tracing.NewTracer(trace.SpanKindProducer, opts...),
 	}
 	kp.monitor()
 	return kp, nil
@@ -216,6 +212,7 @@ func NewKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) (*KafkaCo
 		handlers:      make(map[string]Consume),
 		worker:        conf.Worker,
 		chs:           make([]chan *sarama.ConsumerMessage, conf.Worker),
+		Tracer:        tracing.NewTracer(trace.SpanKindConsumer, opts...),
 	}
 	k.ConsumerGroupHandler = k
 	for i := 0; i < k.worker; i++ {
@@ -224,9 +221,6 @@ func NewKafkaConsumer(conf *ConsumerGroupConf, opts ...tracing.Option) (*KafkaCo
 		routine.GoSafe(context.TODO(), func() {
 			k.consume(ch)
 		})
-	}
-	if conf.TraceEnable {
-		k.Tracer = tracing.NewTracer(trace.SpanKindConsumer, opts...)
 	}
 	k.ctx, k.cf = context.WithCancel(context.TODO())
 	return k, nil

@@ -21,7 +21,6 @@ type Error struct {
 	stack stack
 	clone bool
 	error
-	Surplus interface{}
 }
 
 func (e *Error) Error() string {
@@ -81,14 +80,6 @@ func Message(err error) string {
 	return FromError(err).Message
 }
 
-func Surplus(err error) interface{} {
-	var surplus interface{}
-	if err != nil {
-		surplus = FromError(err).Surplus
-	}
-	return surplus
-}
-
 func Metadata(err error) map[string]string {
 	var md map[string]string
 	if err != nil {
@@ -103,9 +94,8 @@ func Wrap(err error, text string) error {
 	}
 
 	return &Error{
-		error:   err,
-		stack:   callers(),
-		Surplus: Surplus(err),
+		error: err,
+		stack: callers(),
 		Status: Status{
 			Message:  Message(err),
 			Reason:   text,
@@ -138,7 +128,6 @@ func (e *Error) WithError(cause error) *Error {
 	err.error = cause
 	se := new(Error)
 	if errors.As(cause, &se) {
-		err.Surplus = se.Surplus
 		err.Metadata = se.Metadata
 	}
 	return err
@@ -159,12 +148,6 @@ func (e *Error) WithMessage(msg string) *Error {
 func (e *Error) WithReason(reason string) *Error {
 	err := clone(e)
 	err.Reason = reason
-	return err
-}
-
-func (e *Error) WithSurplus(surplus interface{}) *Error {
-	err := clone(e)
-	err.Surplus = surplus
 	return err
 }
 
@@ -189,9 +172,8 @@ func clone(err *Error) *Error {
 		metadata[k] = v
 	}
 	return &Error{
-		error:   err.error,
-		stack:   err.stack,
-		Surplus: err.Surplus,
+		error: err.error,
+		stack: err.stack,
 		Status: Status{
 			Code:     err.Code,
 			Reason:   err.Reason,

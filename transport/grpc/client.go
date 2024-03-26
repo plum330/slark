@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"time"
 )
@@ -43,6 +44,7 @@ type option struct {
 	subset    resolver.Subset
 	insecure  bool
 	enable    int64
+	msgSize   int
 	tm        time.Duration
 	logger    logger.Logger
 	tls       *tls.Config
@@ -71,6 +73,12 @@ func WithLogger(l logger.Logger) Option {
 func WithAddr(addr string) Option {
 	return func(o *option) {
 		o.addr = addr
+	}
+}
+
+func WithMaxMsgSize(size int) Option {
+	return func(o *option) {
+		o.msgSize = size
 	}
 }
 
@@ -178,7 +186,7 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		},
 		insecure: true,
 		size:     32,
-		tm:       3 * time.Second,
+		tm:       time.Second,
 		subset:   &resolver.Shuffle{},
 		enable:   0x03,
 	}
@@ -215,6 +223,10 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 		dialOpts = append(dialOpts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
+	if opt.msgSize > 0 {
+		dialOpts = append(dialOpts, grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(opt.msgSize)))
+	}
+
 	if len(opt.strategy) > 0 {
 		var buf bytes.Buffer
 		buf.WriteString("{")
@@ -239,5 +251,17 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	if opt.discovery != nil {
 		dialOpts = append(dialOpts, grpc.WithResolvers(resolver.NewBuilder(opt.discovery, resolver.WithInsecure(opt.insecure), resolver.WithSize(opt.size), resolver.WithSubSet(opt.subset))))
 	}
-	return grpc.DialContext(ctx, opt.addr, dialOpts...)
+	cc, err := grpc.DialContext(ctx, opt.addr, dialOpts...)
+	if err != nil {
+		return nil, err
+	}
+
+	rsp, err := grpc_health_v1.NewHealthClient(cc).Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "grpc.health.v1"})
+	if err != nil {
+		return nil, err
+	}
+	if rsp.Status != grpc_health_v1.HealthCheckResponse_SERVING {
+		return nil, fmt.Errorf("health check status:%d", rsp.Status)
+	}
+	return cc, nil
 }

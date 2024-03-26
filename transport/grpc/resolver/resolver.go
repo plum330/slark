@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/endpoint"
 	"github.com/go-slark/slark/registry"
 	"google.golang.org/grpc/attributes"
 	"google.golang.org/grpc/resolver"
@@ -53,7 +54,7 @@ func (p *parser) update(svc []*registry.Service) {
 	var ok bool
 	// filter
 	for _, s := range svc {
-		addr, err := utils.ParseValidAddr(s.Endpoint, utils.Scheme("grpc", p.insecure))
+		addr, err := endpoint.ParseValidAddr(s.Endpoint, endpoint.Scheme("grpc", p.insecure))
 		if err != nil {
 			continue
 		}
@@ -69,7 +70,7 @@ func (p *parser) update(svc []*registry.Service) {
 	}
 	addresses := make([]resolver.Address, 0, len(svc))
 	for _, s := range set {
-		addr, _ := utils.ParseValidAddr(s.Endpoint, utils.Scheme("grpc", p.insecure))
+		addr, _ := endpoint.ParseValidAddr(s.Endpoint, endpoint.Scheme("grpc", p.insecure))
 		address := resolver.Address{
 			ServerName: s.Name,
 			Attributes: attributes.New(utils.ServiceRegistry, s),

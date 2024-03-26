@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/trace"
 	"github.com/go-slark/slark/transport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -150,7 +151,7 @@ type ssWrapper struct {
 
 func (w *ssWrapper) SendMsg(m interface{}) error {
 	w.sMsgID++
-	// TODO trace event
+	trace.MessageSent.Event(w.ctx, w.sMsgID, m)
 	return w.ServerStream.SendMsg(m)
 }
 
@@ -160,7 +161,7 @@ func (w *ssWrapper) RecvMsg(m interface{}) error {
 		return err
 	}
 	w.rMsgID++
-	// TODO trace event
+	trace.MessageReceived.Event(w.ctx, w.rMsgID, m)
 	return nil
 }
 

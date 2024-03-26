@@ -2,11 +2,19 @@ package grpc
 
 import (
 	"context"
+	"errors"
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
+	tracing "github.com/go-slark/slark/pkg/trace"
 	"github.com/go-slark/slark/transport"
+	"go.opentelemetry.io/otel/codes"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
+	gcodes "google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"io"
 	"strconv"
 )
 
@@ -51,7 +59,29 @@ func streamClientInterceptor(opt *option) grpc.StreamClientInterceptor {
 		ctx = transport.NewClientContext(ctx, trans)
 		rsp, err := middleware.ComposeMiddleware(opt.mws...)(func(ctx context.Context, req interface{}) (interface{}, error) {
 			ctx = metadata.NewOutgoingContext(ctx, md)
-			return streamer(ctx, desc, cc, method, opts...)
+			s, err := streamer(ctx, desc, cc, method, opts...)
+			if err != nil {
+				return nil, err
+			}
+			cs := wrapClientStream(ctx, s, desc)
+
+			// trace
+			go func() {
+				span := trace.SpanFromContext(ctx)
+				err = <-cs.finished
+				if err != nil {
+					st, o := status.FromError(err)
+					if o {
+						span.SetStatus(codes.Error, st.Message())
+						span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int(int(st.Code())))
+					} else {
+						span.SetStatus(codes.Error, err.Error())
+					}
+				} else {
+					span.SetAttributes(semconv.RPCGRPCStatusCodeKey.Int(int(gcodes.OK)))
+				}
+			}()
+			return cs, nil
 		})(ctx, nil)
 		return rsp.(grpc.ClientStream), err
 	}
@@ -83,22 +113,110 @@ func ClientAuthZ() middleware.Middleware {
 	}
 }
 
+type streamEventType int
+
+type streamEvent struct {
+	Type streamEventType
+	Err  error
+}
+
+const (
+	receiveEndEvent streamEventType = iota
+	errorEvent
+)
+
 type clientStreamWrapper struct {
 	grpc.ClientStream
-	rMsgID int
-	sMsgID int
+	rMsgID   int
+	sMsgID   int
+	finished chan error
+	desc     *grpc.StreamDesc
+	done     chan struct{}
+	events   chan streamEvent
+}
+
+func wrapClientStream(ctx context.Context, s grpc.ClientStream, desc *grpc.StreamDesc) *clientStreamWrapper {
+	events := make(chan streamEvent)
+	done := make(chan struct{})
+	finished := make(chan error)
+
+	go func() {
+		defer close(done)
+		for {
+			select {
+			case event := <-events:
+				switch event.Type {
+				case receiveEndEvent:
+					finished <- nil
+					return
+				case errorEvent:
+					finished <- event.Err
+					return
+				}
+			case <-ctx.Done():
+				finished <- ctx.Err()
+				return
+			}
+		}
+	}()
+
+	return &clientStreamWrapper{
+		ClientStream: s,
+		desc:         desc,
+		events:       events,
+		done:         done,
+		finished:     finished,
+	}
 }
 
 func (w *clientStreamWrapper) RecvMsg(m interface{}) error {
 	err := w.ClientStream.RecvMsg(m)
 	if err != nil {
-		return err
+		if errors.Is(err, io.EOF) {
+			w.sendStreamEvent(receiveEndEvent, nil)
+		} else {
+			w.sendStreamEvent(errorEvent, err)
+		}
+	} else {
+		if !w.desc.ServerStreams {
+			w.sendStreamEvent(receiveEndEvent, nil)
+		} else {
+			w.rMsgID++
+			tracing.MessageReceived.Event(w.Context(), w.rMsgID, m)
+		}
 	}
-	w.rMsgID++
-	return nil
+	return err
 }
 
 func (w *clientStreamWrapper) SendMsg(m interface{}) error {
 	w.sMsgID++
-	return w.ClientStream.SendMsg(m)
+	tracing.MessageSent.Event(w.Context(), w.sMsgID, m)
+	err := w.ClientStream.SendMsg(m)
+	if err != nil {
+		w.sendStreamEvent(errorEvent, err)
+	}
+	return err
+}
+
+func (w *clientStreamWrapper) Header() (metadata.MD, error) {
+	md, err := w.ClientStream.Header()
+	if err != nil {
+		w.sendStreamEvent(errorEvent, err)
+	}
+	return md, err
+}
+
+func (w *clientStreamWrapper) CloseSend() error {
+	err := w.ClientStream.CloseSend()
+	if err != nil {
+		w.sendStreamEvent(errorEvent, err)
+	}
+	return err
+}
+
+func (w *clientStreamWrapper) sendStreamEvent(eventType streamEventType, err error) {
+	select {
+	case <-w.done:
+	case w.events <- streamEvent{Type: eventType, Err: err}:
+	}
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/go-slark/slark/middleware/tracing"
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/endpoint"
 	"github.com/go-slark/slark/transport"
 	"github.com/go-slark/slark/transport/http/handler"
 	"go.opentelemetry.io/otel/trace"
@@ -176,12 +177,12 @@ func (s *Server) listen() error {
 }
 
 func (s *Server) Endpoint() (*url.URL, error) {
-	host, err := utils.ParseAddr(s.listener, s.address)
+	host, err := endpoint.ParseAddr(s.listener, s.address)
 	if err != nil {
 		return nil, err
 	}
 	u := &url.URL{
-		Scheme: utils.Scheme("http", s.tls == nil),
+		Scheme: endpoint.Scheme("http", s.tls == nil),
 		Host:   host,
 	}
 	return u, nil

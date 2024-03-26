@@ -8,7 +8,7 @@ import (
 
 func BaseError() error {
 	return New(599, "base error", "base error").WithMessage("first error").
-		WithError(errors.New("with errors")).WithReason("77777").WithSurplus("ffff").
+		WithError(errors.New("with errors")).WithReason("77777").
 		WithMetadata(map[string]string{"meta": "uuuuuuuu"})
 }
 
