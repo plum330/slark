@@ -69,11 +69,10 @@ func Log(l logger.Logger) gin.HandlerFunc {
 				l.Log(ctx.Request.Context(), logger.ErrorLevel, fields, "unknown error")
 			} else {
 				fields := map[string]interface{}{
-					"meta":    ce.Metadata,
-					"reason":  ce.Reason,
-					"code":    ce.Code,
-					"surplus": ce.Surplus,
-					"error":   fmt.Sprintf("%+v", err.Err),
+					"meta":   ce.Metadata,
+					"reason": ce.Reason,
+					"code":   ce.Code,
+					"error":  fmt.Sprintf("%+v", err.Err),
 				}
 				l.Log(ctx.Request.Context(), logger.ErrorLevel, fields, ce.Message)
 			}

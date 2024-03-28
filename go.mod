@@ -3,6 +3,7 @@ module github.com/go-slark/slark
 go 1.20
 
 require (
+	github.com/BurntSushi/toml v0.3.1
 	github.com/IBM/sarama v1.43.0
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
 	github.com/alibaba/sentinel-golang v1.0.4
@@ -10,6 +11,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/dtm-labs/rockscache v0.1.1
 	github.com/elastic/go-elasticsearch/v7 v7.17.10
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-playground/form/v4 v4.2.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -29,6 +31,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spaolacci/murmur3 v1.1.0
+	github.com/spf13/cast v1.3.0
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/zeromicro/go-zero v1.6.3
 	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
@@ -39,6 +42,7 @@ require (
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.19.0
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
+	golang.org/x/net v0.21.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/text v0.14.0
 	golang.org/x/time v0.5.0
@@ -151,7 +155,6 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20230905200255-921286631fa9 // indirect
-	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/oauth2 v0.16.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect
 	golang.org/x/term v0.18.0 // indirect

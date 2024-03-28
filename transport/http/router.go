@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/gin-gonic/gin"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/transport/http/handler"
+	"net/http"
 	"sync"
 )
 
@@ -27,20 +29,23 @@ func NewRouter(srv *Server) *Router {
 
 type HandlerFunc func(ctx *Context) error
 
-func (r *Router) Handle(method, path string, hf HandlerFunc) {
-	handler := func(ctx *gin.Context) {
+func (r *Router) Handle(method, path string, hf HandlerFunc, handlers ...handler.Middleware) {
+	h := func(ctx *gin.Context) {
+		// /uri/:name/:id
 		mp := make(map[string]string, len(ctx.Params))
 		for _, param := range ctx.Params {
 			mp[param.Key] = param.Value
 		}
 		ctx.Request = ctx.Request.WithContext(context.WithValue(ctx.Request.Context(), utils.RequestVars, mp))
-		c := r.pool.Get().(*Context)
-		c.Set(ctx.Request, ctx.Writer)
-		if err := hf(c); err != nil {
-			r.srv.codecs.errorEncoder(ctx.Request, ctx.Writer, err)
-		}
-		c.Set(nil, nil)
-		r.pool.Put(c)
+		handler.ComposeMiddleware(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			c := r.pool.Get().(*Context)
+			c.Set(req, w)
+			if err := hf(c); err != nil {
+				r.srv.codecs.errorEncoder(req, w, err)
+			}
+			c.Set(nil, nil)
+			r.pool.Put(c)
+		}), handlers...).ServeHTTP(ctx.Writer, ctx.Request)
 	}
-	r.srv.engine.Handle(method, r.srv.basePath+path, handler)
+	r.srv.engine.Handle(method, r.srv.basePath+path, h)
 }

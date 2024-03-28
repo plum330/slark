@@ -151,7 +151,7 @@ func NewServer(opts ...ServerOption) *Server {
 	}
 	srv.mws = utils.Filter(srv.mws, srv.enable)
 	srv.TLSConfig = srv.tls
-	srv.handlers = append([]handler.Middleware{func(handler http.Handler) http.Handler {
+	srv.handlers = append(srv.handlers, func(handler http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			trans := &Transport{
 				Operation: fmt.Sprintf("%s %s", r.Method, r.URL.Path),
@@ -161,7 +161,7 @@ func NewServer(opts ...ServerOption) *Server {
 			r = r.WithContext(transport.NewServerContext(r.Context(), trans))
 			handler.ServeHTTP(w, r)
 		})
-	}})
+	})
 	srv.Handler = handler.ComposeMiddleware(srv.engine, srv.handlers...)
 	srv.err = srv.listen()
 	return srv

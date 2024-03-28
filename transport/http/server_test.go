@@ -2,7 +2,9 @@ package http
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-slark/slark/errors"
+	"github.com/go-slark/slark/transport/http/handler"
 	"math/rand"
 	"net/http"
 	"testing"
@@ -21,6 +23,7 @@ func TestServer(t *testing.T) {
 	r := NewRouter(srv)
 	r.Handle(http.MethodGet, "/ping", func(ctx *Context) error {
 		time.Sleep(1 * time.Millisecond)
+		fmt.Println("++++++++++++")
 		return nil
 	})
 	srv.Start()
@@ -43,6 +46,34 @@ func TestBreaker(t *testing.T) {
 			return err
 		}
 		return ctx.Result(x)
+	})
+	srv.Start()
+}
+
+func TestRedirect(t *testing.T) {
+	srv := NewServer(Enable(0x63), Handlers(handler.CORS(), handler.Redirect(&handler.Redirecting{
+		URL:         "/redirect",
+		RedirectURL: "https://www.baidu.com",
+		Code:        301,
+	})))
+	r := NewRouter(srv)
+	r.Handle(http.MethodGet, "/redirect", func(ctx *Context) error {
+		time.Sleep(1 * time.Millisecond)
+		return nil
+	})
+	srv.Start()
+}
+
+func TestURI(t *testing.T) {
+	srv := NewServer(Enable(0x63))
+	r := NewRouter(srv)
+	r.Handle(http.MethodGet, "/info/:name", func(ctx *Context) error {
+		time.Sleep(1 * time.Millisecond)
+		return nil
+	})
+	r.Handle(http.MethodGet, "/qname", func(ctx *Context) error {
+		time.Sleep(1 * time.Millisecond)
+		return nil
 	})
 	srv.Start()
 }
