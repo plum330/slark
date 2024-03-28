@@ -15,7 +15,7 @@ type Config struct {
 	l         sync.RWMutex
 	changed   map[string]any
 	cached    sync.Map
-	changes   []func(*Config) // 变动callback
+	callback  []func(*Config)
 	watchers  map[string][]func(*Config)
 	format    string
 	delimiter string
@@ -30,10 +30,18 @@ func New() *Config {
 		delimiter: ".",
 		format:    "toml",
 		src:       file.NewFile(""), // TODO 默认文件路径
-		changes:   make([]func(*Config), 0),
+		callback:  make([]func(*Config), 0),
 		watchers:  make(map[string][]func(*Config)),
 	}
 	return c
+}
+
+type Option func(*Config)
+
+func Callback(callback []func(*Config)) Option {
+	return func(c *Config) {
+		c.callback = callback
+	}
 }
 
 func (c *Config) Load() error {
@@ -47,8 +55,8 @@ func (c *Config) Load() error {
 	}
 	routine.GoSafe(context.TODO(), func() {
 		c.l.RLock()
-		for _, change := range c.changes {
-			change(c)
+		for _, callback := range c.callback {
+			callback(c)
 		}
 		c.l.RUnlock()
 		for range c.src.Watch() {
@@ -58,8 +66,8 @@ func (c *Config) Load() error {
 			}
 			_ = c.load(cfg)
 			c.l.RLock()
-			for _, change := range c.changes {
-				change(c)
+			for _, callback := range c.callback {
+				callback(c)
 			}
 			c.l.RUnlock()
 		}
@@ -90,7 +98,7 @@ func (c *Config) apply(cfg map[string]any) {
 	defer c.l.Unlock()
 	changes := make(map[string]any)
 	merge(c.changed, cfg)
-	data := find(c.changed, "", c.delimiter)
+	data := spread(c.changed, "", c.delimiter)
 	for k, v := range data {
 		vv, ok := c.cached.Load(k)
 		if ok && !reflect.DeepEqual(vv, v) {

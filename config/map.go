@@ -86,8 +86,8 @@ func search(m map[string]any, paths []string) map[string]any {
 	return m
 }
 
-func find(src map[string]any, prefix, delimiter string) map[string]any {
-	var data map[string]any
+func spread(src map[string]any, prefix, delimiter string) map[string]any {
+	target := make(map[string]any)
 	for k, v := range src {
 		p := fmt.Sprintf("%s%s%s", prefix, delimiter, k)
 		if prefix == "" {
@@ -95,12 +95,12 @@ func find(src map[string]any, prefix, delimiter string) map[string]any {
 		}
 		m, err := cast.ToStringMapE(v)
 		if err != nil {
-			data[p] = v
+			target[p] = v
 		} else {
-			for mk, mv := range find(m, p, delimiter) {
-				data[mk] = mv
+			for mk, mv := range spread(m, p, delimiter) {
+				target[mk] = mv
 			}
 		}
 	}
-	return data
+	return target
 }

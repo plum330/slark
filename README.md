@@ -1,13 +1,3 @@
-# slark
-
-配置中心
-benchmark
-配置热更新
-    【1】在加载配置文件之后，启动一个线程。
-    
-    【2】该线程定时监听这个配置文件是否有改动。
-    
-    【3】如果配置文件有变动，就重新加载一下。
-    
-    【4】重新加载之后通知需要使用这些配置的应用程序（进程或线程），实际上就是刷新内存中配置。
-copygen
+<div style="text-align: center; margin-top: 10px;">
+    <img src="https://github.com/go-slark/slark/blob/main/docs%2Fslark.png" width="180" height="105">
+</div>

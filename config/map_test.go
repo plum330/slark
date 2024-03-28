@@ -42,3 +42,16 @@ func TestMerge(t *testing.T) {
 	merge(dest, src)
 	t.Logf("mp:%+v", dest)
 }
+
+func TestSpread(t *testing.T) {
+	src := map[string]any{
+		"foo": map[string]any{
+			"bar": map[int]bool{
+				1: true,
+			},
+			"baz": "123",
+		},
+	}
+	mp := spread(src, "", ".")
+	t.Logf("spread mp:%+v", mp)
+}
