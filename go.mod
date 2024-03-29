@@ -11,7 +11,7 @@ require (
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/dtm-labs/rockscache v0.1.1
 	github.com/elastic/go-elasticsearch/v7 v7.17.10
-	github.com/fsnotify/fsnotify v1.4.7
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-playground/form/v4 v4.2.1
 	github.com/golang-jwt/jwt v3.2.2+incompatible
@@ -20,9 +20,11 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
 	github.com/googollee/go-socket.io v1.7.0
+	github.com/gookit/properties v0.3.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0
-	github.com/mitchellh/mapstructure v1.1.2
+	github.com/mitchellh/mapstructure v1.5.0
+	github.com/philchia/agollo/v4 v4.1.5
 	github.com/prometheus/client_golang v1.18.0
 	github.com/rakyll/statik v0.1.7
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.5
@@ -32,7 +34,7 @@ require (
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spaolacci/murmur3 v1.1.0
-	github.com/spf13/cast v1.3.0
+	github.com/spf13/cast v1.3.1
 	github.com/vmihailenco/msgpack/v5 v5.3.5
 	github.com/zeromicro/go-zero v1.6.3
 	github.com/zhenjl/cityhash v0.0.0-20131128155616-cdd6a94144ab
@@ -100,6 +102,8 @@ require (
 	github.com/google/cel-go v0.18.1 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/gookit/color v1.5.2 // indirect
+	github.com/gookit/goutil v0.6.5 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-syslog v1.0.0 // indirect
@@ -145,6 +149,7 @@ require (
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
+	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	go.etcd.io/etcd/api/v3 v3.5.12 // indirect
 	go.etcd.io/etcd/client/pkg/v3 v3.5.12 // indirect

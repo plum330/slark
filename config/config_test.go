@@ -1,7 +1,9 @@
 package config
 
 import (
+	"github.com/go-slark/slark/config/source/config_center/apollo"
 	"github.com/go-slark/slark/config/source/env"
+	ap "github.com/philchia/agollo/v4"
 	"os"
 	"sync"
 	"testing"
@@ -83,4 +85,53 @@ func TestEnvConfig(t *testing.T) {
 	}
 	t.Logf("redis_addr:%s", r.RedisAddr)
 	select {}
+}
+
+type Consul struct {
+	Addr string `json:"addr"`
+}
+
+type Mysql struct {
+	Addr string `json:"addr"`
+}
+
+type ApolloConfig struct {
+	Consul Consul `json:"consul"`
+	Redis  Redis  `json:"redis"`
+	Mysql  Mysql  `json:"mysql"`
+}
+
+func TestApollo(t *testing.T) {
+	c := New(WithSource(apollo.New(&ap.Conf{
+		AppID:              "color-123",
+		Cluster:            "",
+		NameSpaceNames:     []string{},
+		CacheDir:           ".",
+		MetaAddr:           "192.168.5.8:18080",
+		AccesskeySecret:    "",
+		InsecureSkipVerify: false,
+	})))
+	c.callback = append(c.callback, func(m *sync.Map) {
+		v, _ := c.cached.Load("consul.addr")
+		t.Logf("config:%+v", v)
+
+		ac := &ApolloConfig{}
+		err := c.Unmarshal(ac)
+		if err != nil {
+			t.Fatalf("unmarshal apollo cfg error:%+v", err)
+		}
+		t.Logf("apollo cfg:%+v\n", ac)
+	})
+	err := c.Load()
+	if err != nil {
+		t.Fatalf("load err:%+v", err)
+	}
+	// formal load
+	ac := &ApolloConfig{}
+	err = c.Unmarshal(ac)
+	if err != nil {
+		t.Fatalf("unmarshal apollo cfg error:%+v", err)
+	}
+	t.Logf("apollo cfg:%+v\n", ac)
+	<-make(chan struct{})
 }

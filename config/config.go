@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/go-slark/slark/config/source/file"
+	"github.com/go-slark/slark/config/source/env"
 	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/pkg/routine"
 	"github.com/mitchellh/mapstructure"
@@ -27,7 +27,7 @@ func New(opts ...Option) *Config {
 		l:         sync.RWMutex{},
 		cached:    sync.Map{},
 		delimiter: ".",
-		src:       file.NewFile("file/config.toml"),
+		src:       env.New(),
 		callback:  make([]func(*sync.Map), 0),
 	}
 	for _, opt := range opts {
@@ -91,14 +91,6 @@ func (c *Config) load(data []byte) error {
 	return nil
 }
 
-func (c *Config) set(key, value string) {
-	paths := strings.Split(key, c.delimiter)
-	lastKey := paths[len(paths)-1]
-	m := search(c.changed, paths[:len(paths)-1])
-	m[lastKey] = value
-	c.apply(m)
-}
-
 func (c *Config) apply(cfg map[string]any) {
 	c.l.Lock()
 	defer c.l.Unlock()
@@ -148,6 +140,14 @@ func (c *Config) Unmarshal(v any, key ...string) error {
 		return err
 	}
 	return decoder.Decode(c.find(key[0]))
+}
+
+func (c *Config) set(key, value string) {
+	paths := strings.Split(key, c.delimiter)
+	lastKey := paths[len(paths)-1]
+	m := search(c.changed, paths[:len(paths)-1])
+	m[lastKey] = value
+	c.apply(m)
 }
 
 func (c *Config) Get(key string) any {
