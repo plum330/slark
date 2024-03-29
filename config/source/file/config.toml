@@ -1,0 +1,12 @@
+[redis]
+    addr = ":9092"
+    timeout = 51
+
+[mongo]
+    name = "mongo"
+    password = "123"
+
+[kafka]
+    [kafka.producer]
+        addr = "kafka:///:9099"
+        port = 9000

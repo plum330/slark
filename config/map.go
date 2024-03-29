@@ -43,8 +43,7 @@ func merge(dest, src map[string]any) {
 	}
 }
 
-// 搜索
-func copier(m map[string]any, paths ...string) map[string]any {
+func deepSearch(m map[string]any, paths []string) map[string]any {
 	mp := make(map[string]any)
 	for k, v := range m {
 		mp[k] = v

@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"github.com/fsnotify/fsnotify"
+	"github.com/go-slark/slark/encoding/toml"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/pkg/routine"
 	"log"
@@ -37,7 +38,7 @@ func NewFile(path string) *File {
 func (f *File) watch() {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Log(context.TODO(), logger.PanicLevel, map[string]interface{}{"error": err})
+		logger.Log(context.TODO(), logger.FatalLevel, map[string]interface{}{"error": err})
 	}
 	defer w.Close()
 
@@ -45,7 +46,7 @@ func (f *File) watch() {
 		for {
 			select {
 			case event := <-w.Events:
-				logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{
+				logger.Log(context.TODO(), logger.DebugLevel, map[string]interface{}{
 					"event": filepath.Clean(event.Name),
 					"path":  filepath.Clean(f.path),
 				})
@@ -54,14 +55,14 @@ func (f *File) watch() {
 				// 2 - if the real path to the config file changed
 				const writeOrCreateMask = fsnotify.Write | fsnotify.Create
 				if event.Op&writeOrCreateMask != 0 && filepath.Clean(event.Name) == filepath.Clean(f.path) {
-					log.Println("modified file: ", event.Name)
+					logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{"file": event.Name}, "file modify")
 					select {
-					//case f.changed <- struct{}{}:
+					case f.notify <- struct{}{}:
 					default:
 					}
 				}
 			case e := <-w.Errors:
-				logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": e})
+				logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": e}, "file watch error")
 			}
 		}
 	})
@@ -70,7 +71,7 @@ func (f *File) watch() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	select {}
+	<-make(chan struct{})
 }
 
 func (f *File) Load() ([]byte, error) {
@@ -84,6 +85,10 @@ func (f *File) Watch() <-chan struct{} {
 func (f *File) Close() error {
 	close(f.notify)
 	return nil
+}
+
+func (f *File) Format() string {
+	return toml.Name
 }
 
 func isDir(path string) (bool, error) {

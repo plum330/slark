@@ -4,6 +4,7 @@ import (
 	"github.com/go-slark/slark/config/source/file"
 	"github.com/go-slark/slark/encoding"
 	"github.com/go-slark/slark/pkg/routine"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cast"
 	"golang.org/x/net/context"
 	"reflect"
@@ -15,32 +16,37 @@ type Config struct {
 	l         sync.RWMutex
 	changed   map[string]any
 	cached    sync.Map
-	callback  []func(*Config)
-	watchers  map[string][]func(*Config)
-	format    string
+	callback  []func(*sync.Map)
 	delimiter string
 	src       Source
 }
 
-func New() *Config {
+func New(opts ...Option) *Config {
 	c := &Config{
 		changed:   make(map[string]any),
 		l:         sync.RWMutex{},
 		cached:    sync.Map{},
 		delimiter: ".",
-		format:    "toml",
-		src:       file.NewFile(""), // TODO 默认文件路径
-		callback:  make([]func(*Config), 0),
-		watchers:  make(map[string][]func(*Config)),
+		src:       file.NewFile("file/config.toml"),
+		callback:  make([]func(*sync.Map), 0),
+	}
+	for _, opt := range opts {
+		opt(c)
 	}
 	return c
 }
 
 type Option func(*Config)
 
-func Callback(callback []func(*Config)) Option {
+func Callback(callback []func(*sync.Map)) Option {
 	return func(c *Config) {
 		c.callback = callback
+	}
+}
+
+func WithSource(src Source) Option {
+	return func(c *Config) {
+		c.src = src
 	}
 }
 
@@ -56,7 +62,7 @@ func (c *Config) Load() error {
 	routine.GoSafe(context.TODO(), func() {
 		c.l.RLock()
 		for _, callback := range c.callback {
-			callback(c)
+			callback(&c.cached)
 		}
 		c.l.RUnlock()
 		for range c.src.Watch() {
@@ -67,7 +73,7 @@ func (c *Config) Load() error {
 			_ = c.load(cfg)
 			c.l.RLock()
 			for _, callback := range c.callback {
-				callback(c)
+				callback(&c.cached)
 			}
 			c.l.RUnlock()
 		}
@@ -77,7 +83,7 @@ func (c *Config) Load() error {
 
 func (c *Config) load(data []byte) error {
 	cfg := make(map[string]any)
-	err := encoding.GetCodec(c.format).Unmarshal(data, &cfg)
+	err := encoding.GetCodec(c.src.Format()).Unmarshal(data, &cfg)
 	if err != nil {
 		return err
 	}
@@ -107,27 +113,7 @@ func (c *Config) apply(cfg map[string]any) {
 		c.cached.Store(k, v)
 	}
 	if len(changes) > 0 {
-		c.notify(changes)
-	}
-}
-
-func (c *Config) notify(changes map[string]any) {
-	var changedWatchPrefixMap = map[string]struct{}{}
-
-	for watchPrefix := range c.watchers {
-		for key := range changes {
-			// 前缀匹配即可
-			// todo 可能产生错误匹配
-			if strings.HasPrefix(key, watchPrefix) {
-				changedWatchPrefixMap[watchPrefix] = struct{}{}
-			}
-		}
-	}
-
-	for changedWatchPrefix := range changedWatchPrefixMap {
-		for _, handle := range c.watchers[changedWatchPrefix] {
-			go handle(c)
-		}
+		// TODO
 	}
 }
 
@@ -136,14 +122,32 @@ func (c *Config) find(key string) any {
 	if ok {
 		return data
 	}
-
 	paths := strings.Split(key, c.delimiter)
 	c.l.RLock()
 	defer c.l.RUnlock()
-	m := copier(c.changed, paths[:len(paths)-1]...)
+	m := deepSearch(c.changed, paths[:len(paths)-1])
 	data = m[paths[len(paths)-1]]
 	c.cached.Store(key, data)
 	return data
+}
+
+func (c *Config) Unmarshal(v any, key ...string) error {
+	config := mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.StringToTimeDurationHookFunc(),
+		Result:     v,
+		TagName:    "json",
+	}
+	decoder, err := mapstructure.NewDecoder(&config)
+	if err != nil {
+		return err
+	}
+	if len(key) == 0 {
+		c.l.RLock()
+		err = decoder.Decode(c.changed)
+		c.l.RUnlock()
+		return err
+	}
+	return decoder.Decode(c.find(key[0]))
 }
 
 func (c *Config) Get(key string) any {

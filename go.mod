@@ -22,6 +22,7 @@ require (
 	github.com/googollee/go-socket.io v1.7.0
 	github.com/gorilla/websocket v1.5.1
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0
+	github.com/mitchellh/mapstructure v1.1.2
 	github.com/prometheus/client_golang v1.18.0
 	github.com/rakyll/statik v0.1.7
 	github.com/redis/go-redis/extra/redisotel/v9 v9.0.5
