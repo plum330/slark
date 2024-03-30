@@ -26,30 +26,30 @@ type KafkaProducer struct {
 }
 
 type ProducerConf struct {
-	Brokers       []string `mapstructure:"brokers"`
-	Retry         int      `mapstructure:"retry"`
-	Ack           int16    `mapstructure:"ack"`
-	ReturnSuccess bool     `mapstructure:"return_success"`
-	ReturnErrors  bool     `mapstructure:"return_errors"`
-	Version       string   `mapstructure:"version"`
+	Brokers       []string `json:"brokers"`
+	Retry         int      `json:"retry"`
+	Ack           int16    `json:"ack"`
+	ReturnSuccess bool     `json:"return_success"`
+	ReturnErrors  bool     `json:"return_errors"`
+	Version       string   `json:"version"`
 }
 
 type ConsumerGroupConf struct {
-	Brokers      []string      `mapstructure:"brokers"`
-	GroupID      string        `mapstructure:"group_id"`
-	Topics       []string      `mapstructure:"topics"`
-	Initial      int64         `mapstructure:"initial"`
-	ReturnErrors bool          `mapstructure:"return_errors"`
-	AutoCommit   bool          `mapstructure:"auto_commit"`
-	Interval     time.Duration `mapstructure:"interval"`
-	WorkerNum    uint          `mapstructure:"worker_num"`
-	Version      string        `mapstructure:"version"`
-	Worker       int           `mapstructure:"worker"`
+	Brokers      []string      `json:"brokers"`
+	GroupID      string        `json:"group_id"`
+	Topics       []string      `json:"topics"`
+	Initial      int64         `json:"initial"`
+	ReturnErrors bool          `json:"return_errors"`
+	AutoCommit   bool          `json:"auto_commit"`
+	Interval     time.Duration `json:"interval"`
+	WorkerNum    uint          `json:"worker_num"`
+	Version      string        `json:"version"`
+	Worker       int           `json:"worker"`
 }
 
 type KafkaConf struct {
-	Producer      *ProducerConf      `mapstructure:"producer"`
-	ConsumerGroup *ConsumerGroupConf `mapstructure:"consumer_group"`
+	Producer      *ProducerConf      `json:"producer"`
+	ConsumerGroup *ConsumerGroupConf `json:"consumer_group"`
 }
 
 func (kp *KafkaProducer) Close() {

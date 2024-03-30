@@ -2,6 +2,8 @@ package errors
 
 import "net/http"
 
+// reason: ERR_SERVICE_MODULE_XX
+
 // BadRequest param / format error
 func BadRequest(msg, reason string) *Error {
 	return New(http.StatusBadRequest, msg, reason)
