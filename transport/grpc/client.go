@@ -161,6 +161,12 @@ func WithKeepalive(keepalive Keepalive) Option {
 }
 MaxAttempts一次原始请求，2次重试，最大值5
 InitialBakckoff, BackoffMultiplier, MaxBackoff计算重试间隔:第一次重试间隔random(0, InitialBakckoff), 第n次重试间隔random(0, min( InitialBakckoff*BackoffMultiplier*(n-1) , MaxBackoff))
+
+{
+	“HealthCheckConfig”: {
+		"ServiceName": "xxx.health"
+	}
+}
 */
 
 func WithStrategy(strategy []Strategy) Option {

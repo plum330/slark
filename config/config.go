@@ -16,7 +16,7 @@ type Config struct {
 	l         sync.RWMutex
 	changed   map[string]any
 	cached    sync.Map
-	callback  []func(*sync.Map)
+	callback  []func()
 	delimiter string
 	src       Source
 }
@@ -28,7 +28,7 @@ func New(opts ...Option) *Config {
 		cached:    sync.Map{},
 		delimiter: ".",
 		src:       env.New(),
-		callback:  make([]func(*sync.Map), 0),
+		callback:  make([]func(), 0),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -38,7 +38,7 @@ func New(opts ...Option) *Config {
 
 type Option func(*Config)
 
-func Callback(callback []func(*sync.Map)) Option {
+func Callback(callback []func()) Option {
 	return func(c *Config) {
 		c.callback = callback
 	}
@@ -62,7 +62,7 @@ func (c *Config) Load() error {
 	routine.GoSafe(context.TODO(), func() {
 		c.l.RLock()
 		for _, callback := range c.callback {
-			callback(&c.cached)
+			callback()
 		}
 		c.l.RUnlock()
 		for range c.src.Watch() {
@@ -73,7 +73,7 @@ func (c *Config) Load() error {
 			_ = c.load(cfg)
 			c.l.RLock()
 			for _, callback := range c.callback {
-				callback(&c.cached)
+				callback()
 			}
 			c.l.RUnlock()
 		}

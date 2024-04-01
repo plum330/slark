@@ -49,27 +49,26 @@ func (s *Sentinel) watch(path string) {
 	}
 	defer w.Close()
 	f := filepath.Clean(path)
-	links, _ := filepath.EvalSymlinks(path)
-
+	newPath, _ := filepath.EvalSymlinks(path)
 	routine.GoSafe(context.TODO(), func() {
 		for {
 			select {
 			case event := <-w.Events:
-				cLinks, _ := filepath.EvalSymlinks(path)
+				curPath, _ := filepath.EvalSymlinks(path)
 				logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{
-					"event":     filepath.Clean(event.Name),
-					"path":      filepath.Clean(path),
-					"cur_links": cLinks,
-					"links":     links,
+					"event":    filepath.Clean(event.Name),
+					"path":     filepath.Clean(path),
+					"cur_path": curPath,
+					"new_path": newPath,
 				}, "watch event")
 				// we only care about the config file with the following cases:
 				// 1 - if the config file was modified or created
 				// 2 - if the real path to the config file changed
 				const writeOrCreateMask = fsnotify.Write | fsnotify.Create
-				if (filepath.Clean(event.Name) == f && event.Op&writeOrCreateMask != 0) || (cLinks != "" && cLinks != links) {
-					links = cLinks
-					s.init(links)
-					logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{"event": event.Name, "links": links}, "sentinel file modified")
+				if (filepath.Clean(event.Name) == f && event.Op&writeOrCreateMask != 0) || (curPath != "" && curPath != newPath) {
+					newPath = curPath
+					s.init(newPath)
+					logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{"event": event.Name, "links": newPath}, "sentinel file modified")
 				}
 			case e := <-w.Errors:
 				logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": e}, "watch error")
@@ -89,8 +88,6 @@ func (s *Sentinel) Exists(resource string) bool {
 	s.l.Unlock()
 	return exists
 }
-
-// 全局sentinel
 
 func NewSentinel(path string) (*Sentinel, error) {
 	s := &Sentinel{}

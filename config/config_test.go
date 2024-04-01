@@ -5,7 +5,6 @@ import (
 	"github.com/go-slark/slark/config/source/env"
 	ap "github.com/philchia/agollo/v4"
 	"os"
-	"sync"
 	"testing"
 )
 
@@ -36,8 +35,8 @@ type AllConfig struct {
 
 func TestFileConfig(t *testing.T) {
 	c := New()
-	c.callback = append(c.callback, func(m *sync.Map) {
-		v, _ := c.cached.Load("redis.addr")
+	c.callback = append(c.callback, func() {
+		v := c.Get("redis.addr")
 		t.Logf("config:%+v", v)
 	})
 	err := c.Load()
@@ -69,8 +68,8 @@ type RedisConfig struct {
 func TestEnvConfig(t *testing.T) {
 	os.Setenv("slark_redis_addr", "redis://127.0.0.1:8080")
 	c := New(WithSource(env.New()))
-	c.callback = append(c.callback, func(m *sync.Map) {
-		v, _ := c.cached.Load("redis_addr")
+	c.callback = append(c.callback, func() {
+		v := c.Get("redis_addr")
 		t.Logf("config:%+v", v)
 	})
 	err := c.Load()
@@ -111,8 +110,8 @@ func TestApollo(t *testing.T) {
 		AccesskeySecret:    "",
 		InsecureSkipVerify: false,
 	})))
-	c.callback = append(c.callback, func(m *sync.Map) {
-		v, _ := c.cached.Load("consul.addr")
+	c.callback = append(c.callback, func() {
+		v := c.Get("consul.addr")
 		t.Logf("config:%+v", v)
 
 		ac := &ApolloConfig{}

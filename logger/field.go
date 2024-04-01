@@ -1,43 +1,24 @@
 package logger
 
+// 日志字段收敛
+
+const (
+	Level     = "lv"
+	APPID     = "aid"
+	Timestamp = "ts"
+	Msg       = "msg"
+	Module    = "mod"
+	Error     = "err"
+)
+
 type Field struct {
 	Key   string
 	Value interface{}
 }
 
-// 日志字段收敛
-
-func AppID(aid string) Field {
+func SetField(key string, value interface{}) Field {
 	return Field{
-		Key:   "appid",
-		Value: aid,
-	}
-}
-
-func Module(m string) Field {
-	return Field{
-		Key:   "module",
-		Value: m,
-	}
-}
-
-func Msg(msg interface{}) Field {
-	return Field{
-		Key:   "msg",
-		Value: msg,
-	}
-}
-
-func Level(level string) Field {
-	return Field{
-		Key:   "level",
-		Value: level,
-	}
-}
-
-func Error(err error) Field {
-	return Field{
-		Key:   "error",
-		Value: err,
+		Key:   key,
+		Value: value,
 	}
 }
