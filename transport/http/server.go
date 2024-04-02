@@ -17,6 +17,7 @@ import (
 	"github.com/go-slark/slark/middleware/validate"
 	utils "github.com/go-slark/slark/pkg"
 	"github.com/go-slark/slark/pkg/endpoint"
+	"github.com/go-slark/slark/pkg/opentelemetry/metric"
 	"github.com/go-slark/slark/transport"
 	"github.com/go-slark/slark/transport/http/handler"
 	"go.opentelemetry.io/otel/trace"
@@ -140,7 +141,7 @@ func NewServer(opts ...ServerOption) *Server {
 	srv.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
 		logging.Log(middleware.Server, srv.logger),
-		metrics.Metrics(middleware.Server),
+		metrics.Metrics(middleware.Server, metric.WithHistogram(metric.RequestDurationHistogram())),
 		breaker.Breaker(),
 		shedding.Limit(),
 		recovery.Recovery(srv.logger),

@@ -12,15 +12,7 @@ import (
 )
 
 func Metrics(pt middleware.PeerType, opts ...metric.Option) middleware.Middleware {
-	meter, err := metric.NewMeter(opts...)
-	if err != nil {
-		return func(handler middleware.Handler) middleware.Handler {
-			return func(ctx context.Context, req interface{}) (interface{}, error) {
-				return nil, err
-			}
-		}
-	}
-
+	meter := metric.NewMeter(opts...)
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
 			var (
@@ -46,7 +38,7 @@ func Metrics(pt middleware.PeerType, opts ...metric.Option) middleware.Middlewar
 				reason = e.Reason
 				code = e.Code
 			}
-			meter.Histogram(ctx, time.Since(start).Milliseconds(),
+			meter.Histogram(ctx, time.Since(start).Seconds(),
 				attribute.String("kind", kind),
 				attribute.String("operation", operation),
 			)
