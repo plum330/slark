@@ -5,11 +5,13 @@ import (
 	"strings"
 )
 
-const (
-	MDPrefix       = "x-md-"
-	GlobalMDPrefix = "x-md-global-"
-	LocalMDPrefix  = "x-md-local-"
-)
+/*
+	x-md-color
+	x-md-mirror
+	x-md-probe
+*/
+
+const Prefix = "x-md-"
 
 type Metadata map[string][]string
 
@@ -39,10 +41,10 @@ type Wrapper struct {
 
 type Option func(*Wrapper)
 
-func NewWrapper(opts ...Option) *Wrapper {
+func New(opts ...Option) *Wrapper {
 	w := &Wrapper{
-		prefix: []string{MDPrefix},
-		md:     nil,
+		prefix: []string{Prefix},
+		md:     map[string][]string{},
 	}
 	for _, opt := range opts {
 		opt(w)

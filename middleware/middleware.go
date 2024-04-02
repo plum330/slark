@@ -4,10 +4,10 @@ import (
 	"context"
 )
 
-type SubType int
+type PeerType int
 
 const (
-	Client SubType = iota + 1
+	Client PeerType = iota + 1
 	Server
 )
 

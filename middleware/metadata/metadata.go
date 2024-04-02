@@ -7,49 +7,47 @@ import (
 	"github.com/go-slark/slark/transport"
 )
 
-func Server() middleware.Middleware {
-	w := metadata.NewWrapper()
+func Metadata(pt middleware.PeerType) middleware.Middleware {
+	w := metadata.New()
 	return func(handler middleware.Handler) middleware.Handler {
 		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			trans, ok := transport.FromServerContext(ctx)
-			if !ok {
-				return handler(ctx, req)
-			}
-			md := metadata.Metadata{}
+			var (
+				ok    bool
+				trans transport.Transporter
+				md    metadata.Metadata
+			)
 			carrier := trans.ReqCarrier()
-			for _, key := range carrier.Keys() {
-				if !w.HasPrefix(key) {
-					continue
+			if pt == middleware.Server {
+				trans, ok = transport.FromServerContext(ctx)
+				if !ok {
+					return handler(ctx, req)
 				}
-				for _, value := range carrier.Values(key) {
-					md.Add(key, value)
+				md = metadata.Metadata{}
+				for _, key := range carrier.Keys() {
+					if !w.HasPrefix(key) {
+						continue
+					}
+					for _, value := range carrier.Values(key) {
+						md.Add(key, value)
+					}
 				}
-			}
-			ctx = metadata.NewMetadataContext(ctx, md)
-			return handler(ctx, req)
-		}
-	}
-}
-
-func Client() middleware.Middleware {
-	w := metadata.NewWrapper()
-	return func(handler middleware.Handler) middleware.Handler {
-		return func(ctx context.Context, req interface{}) (interface{}, error) {
-			trans, ok := transport.FromClientContext(ctx)
-			if !ok {
-				return handler(ctx, req)
-			}
-			reqCarrier := trans.ReqCarrier()
-			md, ok := metadata.FromMetadataContext(ctx)
-			if !ok {
-				return handler(ctx, req)
-			}
-			for key, value := range md {
-				if !w.HasPrefix(key) {
-					continue
+				ctx = metadata.NewMetadataContext(ctx, md)
+			} else if pt == middleware.Client {
+				trans, ok = transport.FromClientContext(ctx)
+				if !ok {
+					return handler(ctx, req)
 				}
-				for _, v := range value {
-					reqCarrier.Add(key, v)
+				md, ok = metadata.FromMetadataContext(ctx)
+				if !ok {
+					return handler(ctx, req)
+				}
+				for _, key := range carrier.Keys() {
+					if !w.HasPrefix(key) {
+						continue
+					}
+					for _, value := range carrier.Values(key) {
+						carrier.Add(key, value)
+					}
 				}
 			}
 			return handler(ctx, req)

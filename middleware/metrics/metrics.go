@@ -124,7 +124,7 @@ var (
 	)
 )
 
-func Metrics(st middleware.SubType, opts ...Options) middleware.Middleware {
+func Metrics(pt middleware.PeerType, opts ...Options) middleware.Middleware {
 	o := &Option{}
 	for _, opt := range opts {
 		opt(o)
@@ -137,9 +137,9 @@ func Metrics(st middleware.SubType, opts ...Options) middleware.Middleware {
 				code                    int32
 				trans                   transport.Transporter
 			)
-			if st == middleware.Client {
+			if pt == middleware.Client {
 				trans, ok = transport.FromClientContext(ctx)
-			} else if st == middleware.Server {
+			} else if pt == middleware.Server {
 				trans, ok = transport.FromServerContext(ctx)
 			}
 			if !ok {
