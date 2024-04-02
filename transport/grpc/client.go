@@ -199,7 +199,7 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	opt.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindClient),
 		logging.Log(middleware.Client, opt.logger),
-		metrics.Metrics(middleware.Client, metrics.WithCounter(metrics.RequestTotal)),
+		metrics.Metrics(middleware.Client),
 		breaker.Breaker(),
 		recovery.Recovery(opt.logger),
 	}

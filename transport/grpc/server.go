@@ -55,7 +55,7 @@ func NewServer(opts ...ServerOption) *Server {
 	srv.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindServer),
 		logging.Log(middleware.Server, srv.logger),
-		metrics.Metrics(middleware.Server, metrics.WithHistogram(metrics.RequestDuration)),
+		metrics.Metrics(middleware.Server),
 		breaker.Breaker(),
 		shedding.Limit(),
 		recovery.Recovery(srv.logger),
