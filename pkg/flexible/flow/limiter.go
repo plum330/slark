@@ -1,9 +1,10 @@
-package limit
+package flow
 
 import (
 	"context"
 	"errors"
 	"github.com/go-slark/slark/logger"
+	"github.com/go-slark/slark/pkg/limit"
 	"github.com/zeromicro/go-zero/core/load"
 	"golang.org/x/time/rate"
 	"time"
@@ -58,7 +59,7 @@ func (s *Shedding) Pass() (func(error), error) {
 
 type MaxConn struct {
 	conn int
-	pool *Pool
+	pool *limit.Pool
 }
 
 type MaxConnOption func(*MaxConn)
@@ -74,7 +75,7 @@ func NewMaxConn(opts ...MaxConnOption) Limiter {
 	for _, opt := range opts {
 		opt(mc)
 	}
-	mc.pool = NewPool(mc.conn)
+	mc.pool = limit.NewPool(mc.conn)
 	return mc
 }
 

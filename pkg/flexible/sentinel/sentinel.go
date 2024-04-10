@@ -1,41 +1,47 @@
-package limit
+package sentinel
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/alibaba/sentinel-golang/api"
 	"github.com/alibaba/sentinel-golang/core/config"
-	"github.com/alibaba/sentinel-golang/core/flow"
 	"github.com/fsnotify/fsnotify"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/pkg/routine"
-	"os"
 	"path/filepath"
 	"sync"
 )
 
-type Sentinel struct {
-	l     sync.Mutex
-	rules map[string]struct{}
+type Resource interface {
+	Init(path string) error
+	Exists(resource string) bool
 }
 
-func (s *Sentinel) init(path string) error {
-	rules := make([]*flow.Rule, 0)
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return err
+type Sentinel struct {
+	Resource
+}
+
+type Option func(*Sentinel)
+
+func New(path string, opts ...Option) (Resource, error) {
+	s := &Sentinel{
+		Resource: &Flow{
+			mu:    sync.RWMutex{},
+			rules: make(map[string]struct{}),
+		},
 	}
-	err = json.Unmarshal(content, &rules)
-	if err != nil {
-		return err
+	for _, opt := range opts {
+		opt(s)
 	}
-	flow.LoadRules(rules)
-	s.l.Lock()
-	for _, rule := range rules {
-		s.rules[rule.Resource] = struct{}{}
+	if len(path) != 0 {
+		err := s.Init(path)
+		if err != nil {
+			logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": err}, "init rule error")
+		}
+		go s.watch(path)
 	}
-	s.l.Unlock()
-	return nil
+	cfg := config.NewDefaultConfig()
+	cfg.Sentinel.App.Name = "" // env
+	return s, api.InitWithConfig(cfg)
 }
 
 func (s *Sentinel) watch(path string) {
@@ -67,8 +73,8 @@ func (s *Sentinel) watch(path string) {
 				const writeOrCreateMask = fsnotify.Write | fsnotify.Create
 				if (filepath.Clean(event.Name) == f && event.Op&writeOrCreateMask != 0) || (curPath != "" && curPath != newPath) {
 					newPath = curPath
-					s.init(newPath)
-					logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{"event": event.Name, "links": newPath}, "sentinel file modified")
+					s.Init(newPath)
+					logger.Log(context.TODO(), logger.InfoLevel, map[string]interface{}{"event": event.Name, "new_path": newPath}, "sentinel file modified")
 				}
 			case e := <-w.Errors:
 				logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": e}, "watch error")
@@ -80,25 +86,4 @@ func (s *Sentinel) watch(path string) {
 		logger.Log(context.TODO(), logger.PanicLevel, map[string]interface{}{"error": err}, "path error")
 	}
 	select {}
-}
-
-func (s *Sentinel) Exists(resource string) bool {
-	s.l.Lock()
-	_, exists := s.rules[resource]
-	s.l.Unlock()
-	return exists
-}
-
-func NewSentinel(path string) (*Sentinel, error) {
-	s := &Sentinel{}
-	if len(path) != 0 {
-		err := s.init(path)
-		if err != nil {
-			logger.Log(context.TODO(), logger.ErrorLevel, map[string]interface{}{"error": err}, "init rule error")
-		}
-		go s.watch(path)
-	}
-	entity := config.NewDefaultConfig()
-	entity.Sentinel.App.Name = "" // env
-	return s, api.InitWithConfig(entity)
 }

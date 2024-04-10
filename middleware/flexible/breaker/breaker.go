@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/middleware"
-	bre "github.com/go-slark/slark/pkg/breaker"
+	bre "github.com/go-slark/slark/pkg/flexible/breaker"
 	"github.com/go-slark/slark/transport"
 )
 

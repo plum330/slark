@@ -4,23 +4,23 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/pkg/limit"
+	"github.com/go-slark/slark/pkg/flexible/flow"
 )
 
 type Limiter struct {
-	limiter limit.Limiter
+	limiter flow.Limiter
 }
 
 type Option func(*Limiter)
 
-func WithLimiter(limiter limit.Limiter) Option {
+func WithLimiter(limiter flow.Limiter) Option {
 	return func(l *Limiter) {
 		l.limiter = limiter
 	}
 }
 
 func Limit(opts ...Option) middleware.Middleware {
-	l := &Limiter{limiter: limit.NewShedding()}
+	l := &Limiter{limiter: flow.NewShedding()}
 	for _, opt := range opts {
 		opt(l)
 	}

@@ -1,0 +1,11 @@
+[
+  {
+    "resource": "",
+    "strategy": 0,
+    "retryTimeoutMs": 3000,
+    "minRequestAmount": 10,
+    "statIntervalMs": 5000,
+    "statSlidingWindowBucketCount": 10,
+    "threshold": 50
+  }
+]

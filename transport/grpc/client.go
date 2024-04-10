@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/logger"
 	"github.com/go-slark/slark/middleware"
-	"github.com/go-slark/slark/middleware/breaker"
+	"github.com/go-slark/slark/middleware/flexible/breaker"
 	"github.com/go-slark/slark/middleware/logging"
 	"github.com/go-slark/slark/middleware/metrics"
 	"github.com/go-slark/slark/middleware/recovery"
@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
 	"time"
 )
@@ -162,11 +161,6 @@ func WithKeepalive(keepalive Keepalive) Option {
 MaxAttempts一次原始请求，2次重试，最大值5
 InitialBakckoff, BackoffMultiplier, MaxBackoff计算重试间隔:第一次重试间隔random(0, InitialBakckoff), 第n次重试间隔random(0, min( InitialBakckoff*BackoffMultiplier*(n-1) , MaxBackoff))
 
-{
-	“HealthCheckConfig”: {
-		"ServiceName": "xxx.health"
-	}
-}
 */
 
 func WithStrategy(strategy []Strategy) Option {
@@ -188,6 +182,10 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 			{
 				Name:  fmt.Sprintf(`"%s"`, "loadBalancingConfig"),
 				Value: `[ {"round_robin": {} } ]`,
+			},
+			{
+				Name:  fmt.Sprintf(`"%s"`, "healthCheckConfig"),
+				Value: `{"serviceName": ""}`,
 			},
 		},
 		insecure: true,
@@ -257,17 +255,5 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	if opt.discovery != nil {
 		dialOpts = append(dialOpts, grpc.WithResolvers(resolver.NewBuilder(opt.discovery, resolver.WithInsecure(opt.insecure), resolver.WithSize(opt.size), resolver.WithSubSet(opt.subset))))
 	}
-	cc, err := grpc.DialContext(ctx, opt.addr, dialOpts...)
-	if err != nil {
-		return nil, err
-	}
-
-	rsp, err := grpc_health_v1.NewHealthClient(cc).Check(ctx, &grpc_health_v1.HealthCheckRequest{Service: "grpc.health.v1"})
-	if err != nil {
-		return nil, err
-	}
-	if rsp.Status != grpc_health_v1.HealthCheckResponse_SERVING {
-		return nil, fmt.Errorf("health check status:%d", rsp.Status)
-	}
-	return cc, nil
+	return grpc.DialContext(ctx, opt.addr, dialOpts...)
 }
