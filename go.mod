@@ -46,7 +46,7 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.19.0
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
-	golang.org/x/net v0.21.0
+	golang.org/x/net v0.23.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/text v0.14.0
 	golang.org/x/time v0.5.0
@@ -60,8 +60,8 @@ require (
 	gorm.io/driver/mysql v1.5.6
 	gorm.io/gorm v1.25.7
 	gorm.io/plugin/opentelemetry v0.1.4
-	k8s.io/api v0.29.2
-	k8s.io/apimachinery v0.29.3
+	k8s.io/api v0.29.4
+	k8s.io/apimachinery v0.29.4
 	k8s.io/client-go v0.29.2
 	mosn.io/holmes v1.0.2
 )
