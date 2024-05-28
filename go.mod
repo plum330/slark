@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/BurntSushi/toml v0.3.1
-	github.com/IBM/sarama v1.43.0
+	github.com/IBM/sarama v1.43.1
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
 	github.com/alibaba/sentinel-golang v1.0.4
 	github.com/bufbuild/protovalidate-go v0.4.0
@@ -46,7 +46,7 @@ require (
 	go.opentelemetry.io/otel/exporters/zipkin v1.19.0
 	go.opentelemetry.io/otel/sdk v1.24.0
 	go.opentelemetry.io/otel/trace v1.24.0
-	golang.org/x/net v0.21.0
+	golang.org/x/net v0.22.0
 	golang.org/x/sync v0.6.0
 	golang.org/x/text v0.14.0
 	golang.org/x/time v0.5.0

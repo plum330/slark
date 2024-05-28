@@ -115,7 +115,7 @@ func ResponseEncoder(req *http.Request, rsp http.ResponseWriter, v interface{}) 
 		Data: v,
 	}
 
-	codec, _ := Codec(req, "*") // utils.Accept
+	codec, _ := Codec(req, utils.Accept)
 	hb, err := codec.Marshal(r.Header)
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func ErrorEncoder(req *http.Request, rsp http.ResponseWriter, err error) {
 			Msg:  e.Message,
 		},
 	}
-	codec, _ := Codec(req, "*") // utils.Accept
+	codec, _ := Codec(req, utils.Accept)
 	data, _ := codec.Marshal(response)
 	rsp.Header().Set(utils.ContentType, SetContentType(codec.Name()))
 	rsp.WriteHeader(int(e.Code))
