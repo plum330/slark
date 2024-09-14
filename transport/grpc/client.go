@@ -13,6 +13,7 @@ import (
 	"github.com/go-slark/slark/middleware/recovery"
 	"github.com/go-slark/slark/middleware/tracing"
 	utils "github.com/go-slark/slark/pkg"
+	"github.com/go-slark/slark/pkg/opentelemetry/metric"
 	"github.com/go-slark/slark/registry"
 	"github.com/go-slark/slark/transport/grpc/balancer/node"
 	"github.com/go-slark/slark/transport/grpc/resolver"
@@ -197,7 +198,7 @@ func Dial(ctx context.Context, opts ...Option) (*grpc.ClientConn, error) {
 	opt.mws = []middleware.Middleware{
 		tracing.Trace(trace.SpanKindClient),
 		logging.Log(middleware.Client, opt.logger),
-		metrics.Metrics(middleware.Client, metrics.WithCounter(metrics.RequestTotal)),
+		metrics.Metrics(middleware.Client, metric.WithCounter(metric.RequestCodeCounter())),
 		breaker.Breaker(),
 		recovery.Recovery(opt.logger),
 	}

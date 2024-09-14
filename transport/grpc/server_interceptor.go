@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
-	"github.com/go-slark/slark/pkg/trace"
+	"github.com/go-slark/slark/pkg/opentelemetry/trace"
 	"github.com/go-slark/slark/transport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

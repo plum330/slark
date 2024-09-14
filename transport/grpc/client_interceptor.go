@@ -5,7 +5,7 @@ import (
 	"errors"
 	"github.com/go-slark/slark/middleware"
 	utils "github.com/go-slark/slark/pkg"
-	tracing "github.com/go-slark/slark/pkg/trace"
+	tracing "github.com/go-slark/slark/pkg/opentelemetry/trace"
 	"github.com/go-slark/slark/transport"
 	"go.opentelemetry.io/otel/codes"
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"

@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-slark/slark/pkg"
-	"github.com/go-slark/slark/pkg/trace"
+	"github.com/go-slark/slark/pkg/opentelemetry/trace"
 	"github.com/sirupsen/logrus"
 	"io"
 	"os"

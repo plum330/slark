@@ -29,6 +29,21 @@ func TestServer(t *testing.T) {
 	srv.Start()
 }
 
+func TestMetric(t *testing.T) {
+	srv := NewServer(Enable(0x67))
+	r := NewRouter(srv)
+	r.Handle(http.MethodGet, "/ping", func(ctx *Context) error {
+		x, err := ctx.Handle(func(ctx context.Context, req interface{}) (interface{}, error) {
+			return nil, nil
+		})(ctx.Context(), nil)
+		if err != nil {
+			return err
+		}
+		return ctx.Result(x)
+	})
+	srv.Start()
+}
+
 func TestBreaker(t *testing.T) {
 	srv := NewServer(Enable(0x63))
 	r := NewRouter(srv)

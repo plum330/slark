@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/go-slark/slark/errors"
 	"github.com/go-slark/slark/middleware"
-	tracing "github.com/go-slark/slark/pkg/trace"
+	tracing "github.com/go-slark/slark/pkg/opentelemetry/trace"
 	"github.com/go-slark/slark/transport"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
