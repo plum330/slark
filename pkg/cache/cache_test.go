@@ -2,179 +2,79 @@ package cache
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/go-slark/slark/infra/mysql"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
-	"testing"
-	"time"
 )
 
-type Value struct {
-	V string `json:"v"`
-}
-
-func TestFetch(t *testing.T) {
-	c := New(redis.NewClient(&redis.Options{
-		Addr:     "192.168.3.13:2379",
-		Password: "CtHHQNbFkXpw33ew",
-		DB:       10,
-	}), Error(redis.Nil), Expiry(5*time.Minute))
-	v := &Value{}
-	_, err := c.Fetch(context.TODO(), "fetch", v, func(value any) error {
-		vv, _ := value.(*Value)
-		vv.V = "***************"
-		return nil
-	})
-	if err != nil {
-		t.Errorf("fetch error:%+v", err)
-		return
-	}
-	t.Logf("fetch result:%s", v.V)
-}
-
-func TestFetchStr(t *testing.T) {
-	c := New(redis.NewClient(&redis.Options{
-		Addr:     "192.168.3.13:2379",
-		Password: "CtHHQNbFkXpw33ew",
-		DB:       10,
-	}), Error(redis.Nil), Expiry(5*time.Minute))
-	var v string
-	_, err := c.Fetch(context.TODO(), "fetch_str", &v, func(value any) error {
-		*value.(*string) = "+++++++++++++++++"
-		return nil
-	})
-	if err != nil {
-		t.Errorf("fetch error:%+v", err)
-		return
-	}
-	t.Logf("fetch result:%s", v)
-}
-
-func TestFetchIndexStr(t *testing.T) {
-	c := New(redis.NewClient(&redis.Options{
-		Addr:     "192.168.3.13:2379",
-		Password: "CtHHQNbFkXpw33ew",
-		DB:       10,
-	}), Error(redis.Nil), Expiry(3*time.Minute))
-	var str string
-	err := c.FetchIndex(context.TODO(), "fetch_index_str", func(k any) string {
-		return fmt.Sprintf("fetch_primary_str:%v", k)
-	}, &str, func(v any) error {
-		//赋值pk
-		*v.(*any) = "====="
-		return nil
-	}, func(v any) error {
-		*v.(*string) = "---------------"
-		return nil
-	})
-	if err != nil {
-		t.Errorf("fetch index error:%+v", err)
-		return
-	}
-	t.Logf("fetch index result:%v", str)
-}
-
-func TestFetchIndex(t *testing.T) {
-	c := New(redis.NewClient(&redis.Options{
-		Addr:     "192.168.3.13:2379",
-		Password: "CtHHQNbFkXpw33ew",
-		DB:       10,
-	}), Error(redis.Nil), Expiry(3*time.Minute))
-	value := &Value{}
-	err := c.FetchIndex(context.TODO(), "fetch_index", func(k any) string {
-		return fmt.Sprintf("fetch_primary:%v", k)
-	}, value, func(v any) error {
-		// 赋值pk
-		*v.(*any) = &Value{V: "66666"}
-		return nil
-	}, func(v any) error {
-		vv, _ := v.(*Value)
-		vv.V = "777777"
-		return nil
-	})
-	if err != nil {
-		t.Errorf("fetch index error:%+v", err)
-		return
-	}
-	t.Logf("fetch index result:%v", value.V)
-}
-
-type AdminModel struct {
+type Subscription struct {
 	gorm.Model
-	State    int
-	Role     int
-	Name     string
-	Account  string
-	Password string
+	UserId   string `gorm:"type:varchar(20);not null"`
+	PubKey   string `gorm:"type:varchar(128)"`
+	PriKey   string `gorm:"type:varchar(64)"`
+	Endpoint string `gorm:"type:varchar(1024)"`
+	Auth     string `gorm:"type:varchar(32)"`
+	P256dh   string `gorm:"type:varchar(128)"`
 }
 
-func TestFromDB(t *testing.T) {
-	client, err := mysql.New(&mysql.Config{
-		Address:     "",
-		MaxIdleConn: 5,
-		MaxOpenConn: 20,
-		MaxLifeTime: 300,
-		LogMode:     4,
-	})
+type State struct {
+	db    *gorm.DB
+	cache *Cache
+}
+
+func NewState(db *gorm.DB, redis *redis.Client) *State {
+	return &State{
+		db:    db,
+		cache: New(redis, Error(gorm.ErrRecordNotFound)),
+	}
+}
+
+func (w *State) Create(ctx context.Context, s *Subscription) error {
+	return w.db.Create(s).Error
+}
+
+func (w *State) Update(ctx context.Context, s *Subscription) error {
+	ss, err := w.Find(ctx, s.UserId)
 	if err != nil {
-		t.Fatalf("new db error:%+v", err)
-	}
-	c := New(redis.NewClient(&redis.Options{
-		Addr:     "",
-		Password: "",
-		DB:       10,
-	}), Expiry(5*time.Minute))
-
-	cases := []struct {
-		name  string
-		key   string
-		f     func(any) error
-		model *AdminModel
-	}{
-		{
-			name: "db存在primary key",
-			key:  "primary-key:1",
-			f: func(v any) error {
-				return client.Model(AdminModel{}).Where("id = 1").First(v).Error
-			},
-			model: &AdminModel{},
-		},
-		{
-			name: "db不存在primary key",
-			key:  "primary-key:0",
-			f: func(v any) error {
-				return client.Model(AdminModel{}).Where("id = 0").First(v).Error
-			},
-			model: &AdminModel{},
-		},
-	}
-
-	for _, ca := range cases {
-		t.Run(ca.name, func(t *testing.T) {
-			_, err = c.Fetch(context.TODO(), ca.key, ca.model, ca.f)
-			if err != nil {
-				t.Errorf("fetch error:%+v", err)
-			}
-			fmt.Printf("%s:%+v\n", ca.key, ca.model)
-		})
-	}
-
-	usr := &AdminModel{}
-	err = c.FetchIndex(context.TODO(), "unique-key:account", func(v any) string {
-		return fmt.Sprintf("primary-key:%v", v)
-	}, usr, func(v any) error {
-		err = client.Model(AdminModel{}).Where("account = ?", "YY01").First(usr).Error
-		if err == nil {
-			// 设置primary key
-			*v.(*any) = usr.ID
-		}
 		return err
-	}, func(v any) error {
-		return client.Model(AdminModel{}).Where("account = ?", "YY01").First(v).Error
+	}
+	pKey := fmt.Sprintf("%d|subscription_notify", ss.ID)
+	uKey := fmt.Sprintf("%s|subscription_notify", s.UserId)
+	return w.cache.Exec(ctx, s, func(v any) error {
+		x, ok := v.(*Subscription)
+		if !ok {
+			return errors.New("invalid type assert")
+		}
+
+		uid := x.UserId
+		x.UserId = ""
+		return w.db.Model(Subscription{}).Where("user_id=?", uid).Updates(x).Error
+	}, pKey, uKey)
+}
+
+func (w *State) Find(ctx context.Context, uid string) (*Subscription, error) {
+	s := &Subscription{}
+	// 唯一key
+	uKey := fmt.Sprintf("%s|subscription_notify", uid)
+	err := w.cache.FetchIndex(ctx, s, uKey, func(v any) string {
+		// 主键key
+		return fmt.Sprintf("%v|subscription_notify", v)
+	}, func(v any) (any, error) {
+		// 查询主键
+		ss := &Subscription{}
+		err := w.db.Model(Subscription{}).Where("user_id=?", uid).First(ss).Error
+		if err != nil {
+			return nil, err
+		}
+		*v.(*Subscription) = *ss
+		return ss.ID, nil
+	}, func(pk, v any) error {
+		// 通过主键查询
+		return w.db.Model(Subscription{}).Where("id=?", pk).First(v).Error
 	})
 	if err != nil {
-		t.Errorf("fetch index error:%+v", err)
+		return nil, err
 	}
-	fmt.Printf("unique-key:account:%+v\n", usr)
+	return s, nil
 }
